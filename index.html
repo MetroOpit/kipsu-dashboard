@@ -1442,6 +1442,22 @@ function showValidationScreen() {
   screen.style.display = 'block';
   screen.innerHTML = '';
 
+  // ── Previously confirmed notice
+  if (prevConfirmedCount > 0) {
+    const prevBanner = document.createElement('div');
+    prevBanner.className = 'fade-in';
+    prevBanner.style.cssText = 'background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:12px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;';
+    prevBanner.innerHTML = `
+      <div style="font-family:var(--mono);font-size:12px;color:var(--green);">
+        ✓ <strong>${prevConfirmedCount} observaciones ya confirmadas</strong> en sesiones anteriores — no requieren revisión nuevamente.
+      </div>
+      <button onclick="clearConfirmedRows();autoLoad();" style="background:none;border:1px solid rgba(16,185,129,0.3);border-radius:6px;color:var(--green);font-family:var(--mono);font-size:10px;padding:4px 10px;cursor:pointer;">
+        Resetear historial
+      </button>
+    `;
+    screen.appendChild(prevBanner);
+  }
+
   // ── Header
   const header = document.createElement('div');
   header.className = 'val-header fade-in';
@@ -1508,8 +1524,44 @@ function showValidationScreen() {
   document.getElementById('instructions-panel').style.display = 'none';
 }
 
+// ── Fingerprint de una fila: fecha + hotel + checkin (suficiente para identificar unívocamente)
+function rowFingerprint(dp) {
+  return dp.interpreted + '|' + (dp.innCode || '');
+}
+
+// ── Cargar set de filas ya confirmadas desde localStorage
+function loadConfirmedRows() {
+  try {
+    const raw = localStorage.getItem('kipsu_confirmed_rows');
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch(e) { return new Set(); }
+}
+
+// ── Guardar set de filas confirmadas en localStorage
+function saveConfirmedRows(set) {
+  try {
+    localStorage.setItem('kipsu_confirmed_rows', JSON.stringify([...set]));
+  } catch(e) {}
+}
+
+// ── Limpiar historial de confirmaciones (botón de reset)
+function clearConfirmedRows() {
+  try { localStorage.removeItem('kipsu_confirmed_rows'); } catch(e) {}
+}
+
 function confirmAndShow() {
   dataConfirmed = true;
+
+  // Guardar todas las filas actuales como confirmadas
+  const confirmed = loadConfirmedRows();
+  const allIssues = (validationResult?.dateParseResults || []).filter(d => d.warning || !d.date);
+  allIssues.forEach(dp => confirmed.add(rowFingerprint(dp)));
+  // También guardar todas las filas sin problemas
+  (validationResult?.dateParseResults || []).forEach(dp => {
+    if (dp.date) confirmed.add(rowFingerprint(dp));
+  });
+  saveConfirmedRows(confirmed);
+
   document.getElementById('validation-screen').style.display = 'none';
   showMainDashboard();
 }
@@ -1856,16 +1908,37 @@ async function autoLoad() {
   try {
     const csvText = await fetchViaProxy(SHEETS_URL);
     parseCSV(csvText);
-    // Si no hay issues, confirmar y mostrar dashboard directamente
-    const issues = (validationResult?.dateParseResults || []).filter(d => d.warning || !d.date);
-    if (issues.length === 0 && (validationResult?.anomalies || []).length === 0) {
-      // Datos limpios → mostrar dashboard directo sin pantalla de validación
+
+    const confirmedRows = loadConfirmedRows();
+    const allIssues = (validationResult?.dateParseResults || []).filter(d => d.warning || !d.date);
+
+    // Separar filas nuevas (no confirmadas antes) de las ya conocidas
+    const newIssues = allIssues.filter(dp => !confirmedRows.has(rowFingerprint(dp)));
+    const newAnomalies = (validationResult?.anomalies || []).filter(a => {
+      const key = a.date + '|' + a.code;
+      return !confirmedRows.has(key);
+    });
+
+    // Marcar en validationResult qué filas son "ya confirmadas" para mostrarlas diferente
+    (validationResult?.dateParseResults || []).forEach(dp => {
+      dp.previouslyConfirmed = confirmedRows.has(rowFingerprint(dp));
+    });
+
+    if (newIssues.length === 0 && newAnomalies.length === 0) {
+      // Sin observaciones nuevas → ir directo al dashboard
+      // Guardar también las filas actuales sin problemas como confirmadas
+      const allDp = validationResult?.dateParseResults || [];
+      allDp.forEach(dp => { if (dp.date) confirmedRows.add(rowFingerprint(dp)); });
+      saveConfirmedRows(confirmedRows);
+
       dataConfirmed = true;
       showMainDashboard();
-      setStatus('ok', allRecords.length + ' registros cargados');
+      const newCount = allRecords.length - confirmedRows.size;
+      setStatus('ok', allRecords.length + ' registros · datos al día');
     } else {
-      // Hay observaciones → mostrar pantalla de validación para revisión
-      showValidationScreen();
+      // Hay filas nuevas con observaciones → mostrar validación solo para esas
+      setStatus('warn', newIssues.length + ' observaciones nuevas · Pendiente revisión');
+      showValidationScreen(newIssues.length, newAnomalies.length);
     }
   } catch (err) {
     setStatus('error', 'Error al cargar');
@@ -1896,12 +1969,14 @@ function buildDateReviewPanel(screen, dateParseResults, anomalies, records, uniq
   drState.anomalies = anomalies;
   drState.userDecisions = {};
   drState.page = 0;
-  drState.filter = hasIssues ? 'issues' : 'all';
+  drState.filter = hasIssues ? 'new_issues' : 'all';
 
-  const corrected = dateParseResults.filter(d => d.corrected).length;
-  const errors    = dateParseResults.filter(d => !d.date).length;
-  const ambiguous = dateParseResults.filter(d => d.warning && !d.corrected && d.date).length;
+  const corrected = dateParseResults.filter(d => d.corrected && !d.previouslyConfirmed).length;
+  const errors    = dateParseResults.filter(d => !d.date && !d.previouslyConfirmed).length;
+  const ambiguous = dateParseResults.filter(d => d.warning && !d.corrected && d.date && !d.previouslyConfirmed).length;
   const ok        = dateParseResults.filter(d => !d.warning && d.date).length;
+  const newCount  = corrected + errors + ambiguous;
+  const prevCount = dateParseResults.filter(d => d.previouslyConfirmed && (d.warning || !d.date)).length;
 
   // ── Section wrapper
   const wrap = document.createElement('div');
@@ -1917,12 +1992,13 @@ function buildDateReviewPanel(screen, dateParseResults, anomalies, records, uniq
         <span id="dr-progress-badge" class="badge badge-blue"></span>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;" id="dr-filter-tabs">
-        ${drFilterBtn('issues', `⚠️ Con observaciones (${corrected+errors+ambiguous})`, corrected+errors+ambiguous > 0)}
-        ${drFilterBtn('errors', `🔴 Errores (${errors})`, errors > 0)}
-        ${drFilterBtn('corrected', `🟡 Corregidas (${corrected})`, corrected > 0)}
-        ${drFilterBtn('ambiguous', `🔵 Ambiguas (${ambiguous})`, ambiguous > 0)}
-        ${drFilterBtn('ok', `✅ Correctas (${ok})`, ok > 0)}
-        ${drFilterBtn('all', `Ver todas (${dateParseResults.length})`, true)}
+        ${newCount > 0 ? drFilterBtn('new_issues', '🆕 Nuevas (' + newCount + ')', true) : ''}
+        ${prevCount > 0 ? drFilterBtn('confirmed', '✓ Ya confirmadas (' + prevCount + ')', prevCount > 0) : ''}
+        ${drFilterBtn('issues', '⚠️ Todas observaciones (' + (corrected.length+errors.length+ambiguous.length) + ')', corrected.length+errors.length+ambiguous.length > 0)}
+        ${drFilterBtn('errors', '🔴 Errores (' + errors.length + ')', errors.length > 0)}
+        ${drFilterBtn('corrected', '🟡 Corregidas (' + corrected.length + ')', corrected.length > 0)}
+        ${drFilterBtn('ok', '✅ Correctas (' + ok + ')', ok > 0)}
+        ${drFilterBtn('all', 'Ver todas (' + dateParseResults.length + ')', true)}
       </div>
     </div>
 
@@ -1976,12 +2052,14 @@ function drSetFilter(f) {
 function drGetFiltered() {
   const all = drState.allResults;
   switch (drState.filter) {
-    case 'issues':    return all.filter(d => d.warning || !d.date);
-    case 'errors':    return all.filter(d => !d.date);
-    case 'corrected': return all.filter(d => d.corrected);
-    case 'ambiguous': return all.filter(d => d.warning && !d.corrected && d.date);
-    case 'ok':        return all.filter(d => !d.warning && d.date);
-    default:          return all;
+    case 'new_issues': return all.filter(d => (d.warning || !d.date) && !d.previouslyConfirmed);
+    case 'issues':     return all.filter(d => d.warning || !d.date);
+    case 'errors':     return all.filter(d => !d.date);
+    case 'corrected':  return all.filter(d => d.corrected);
+    case 'ambiguous':  return all.filter(d => d.warning && !d.corrected && d.date);
+    case 'ok':         return all.filter(d => !d.warning && d.date);
+    case 'confirmed':  return all.filter(d => d.previouslyConfirmed && (d.warning || !d.date));
+    default:           return all;
   }
 }
 
