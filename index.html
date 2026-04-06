@@ -1981,6 +1981,32 @@ window.addEventListener('DOMContentLoaded', () => {
   autoLoad();
 });
 
+
+// ============================================================================
+// CONFIRMED ROWS — localStorage helpers
+// ============================================================================
+
+function rowFingerprint(dp) {
+  return (dp.interpreted || '') + '|' + (dp.innCode || '');
+}
+
+function loadConfirmedRows() {
+  try {
+    const raw = localStorage.getItem('kipsu_confirmed_rows');
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch(e) { return new Set(); }
+}
+
+function saveConfirmedRows(set) {
+  try {
+    localStorage.setItem('kipsu_confirmed_rows', JSON.stringify([...set]));
+  } catch(e) {}
+}
+
+function clearConfirmedRows() {
+  try { localStorage.removeItem('kipsu_confirmed_rows'); } catch(e) {}
+}
+
 async function autoLoad() {
   setBtnLoading(true);
   setStatus('loading', 'Cargando datos...');
