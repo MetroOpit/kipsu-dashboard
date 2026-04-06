@@ -1543,142 +1543,87 @@ function reloadData() {
 // VALIDATION SCREEN
 // ============================================================================
 
-function showValidationScreen() {
+function showValidationScreen(newIssueCount, newAnomalyCount) {
   if (!validationResult) return;
   const { dateParseResults, warnings, anomalies, totalRows } = validationResult;
 
-  const corrected = dateParseResults.filter(d => d.corrected);
-  const errors = dateParseResults.filter(d => !d.date);
-  const ambiguous = dateParseResults.filter(d => d.warning && !d.corrected && d.date);
-  const hasIssues = corrected.length > 0 || errors.length > 0 || anomalies.length > 0 || ambiguous.length > 0;
-
-  const icon = hasIssues ? '⚠️' : '✅';
-  const iconClass = hasIssues ? 'warn' : 'ok';
-  const title = hasIssues ? 'Validación de datos — Se encontraron observaciones' : 'Validación de datos — Todo en orden';
-
-  // Unique dates
-  const uniqueDates = [...new Set(allRecords.map(r => r.date))].sort((a, b) => {
-    return new Date(a) - new Date(b);
+  const corrected = dateParseResults.filter(d => d.corrected && !d.previouslyConfirmed);
+  const errors    = dateParseResults.filter(d => !d.date && !d.previouslyConfirmed);
+  const ambiguous = dateParseResults.filter(d => d.warning && !d.corrected && d.date && !d.previouslyConfirmed);
+  const newAnoms  = anomalies.filter(a => {
+    const dp = dateParseResults.find(dp2 => dp2.interpreted === a.date && dp2.innCode === a.code);
+    return !dp || !dp.previouslyConfirmed;
   });
+  const hasIssues = corrected.length > 0 || errors.length > 0 || newAnoms.length > 0 || ambiguous.length > 0;
+  const prevConfirmedCount = dateParseResults.filter(d => d.previouslyConfirmed && (d.warning || !d.date)).length;
 
-  const lastDate = uniqueDates.length ? uniqueDates[uniqueDates.length-1] : '—';
+  const icon      = hasIssues ? '⚠️' : '✅';
+  const iconClass = hasIssues ? 'warn' : 'ok';
+  const title     = hasIssues
+    ? 'Validación de datos — Se encontraron observaciones nuevas'
+    : 'Validación de datos — Todo en orden';
+
+  const uniqueDates = [...new Set(allRecords.map(r => r.date))].sort((a,b) => new Date(a)-new Date(b));
+  const lastDate  = uniqueDates.length ? uniqueDates[uniqueDates.length-1] : '—';
   const firstDate = uniqueDates.length ? uniqueDates[0] : '—';
-
-  // Determine period coverage
-  let lastDateObj = allRecords.length ? allRecords.reduce((max, r) => r.dateObj > max ? r.dateObj : max, allRecords[0].dateObj) : null;
-  let start7d = lastDateObj ? new Date(lastDateObj.getTime() - 6*86400000) : null;
-  let start30d = lastDateObj ? new Date(lastDateObj.getTime() - 29*86400000) : null;
+  let lastDateObj = allRecords.length ? allRecords.reduce((max,r) => r.dateObj > max ? r.dateObj : max, allRecords[0].dateObj) : null;
+  let start7d     = lastDateObj ? new Date(lastDateObj.getTime() -  6*86400000) : null;
+  let start30d    = lastDateObj ? new Date(lastDateObj.getTime() - 29*86400000) : null;
 
   const screen = document.getElementById('validation-screen');
   screen.style.display = 'block';
   screen.innerHTML = '';
 
-  // ── Previously confirmed notice
+  // Previously confirmed notice
   if (prevConfirmedCount > 0) {
     const prevBanner = document.createElement('div');
     prevBanner.className = 'fade-in';
     prevBanner.style.cssText = 'background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:12px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;';
-    prevBanner.innerHTML = `
-      <div style="font-family:var(--mono);font-size:12px;color:var(--green);">
-        ✓ <strong>${prevConfirmedCount} observaciones ya confirmadas</strong> en sesiones anteriores — no requieren revisión nuevamente.
-      </div>
-      <button onclick="clearConfirmedRows();autoLoad();" style="background:none;border:1px solid rgba(16,185,129,0.3);border-radius:6px;color:var(--green);font-family:var(--mono);font-size:10px;padding:4px 10px;cursor:pointer;">
-        Resetear historial
-      </button>
-    `;
+    prevBanner.innerHTML = '<div style="font-family:var(--mono);font-size:12px;color:var(--green);">✓ <strong>' + prevConfirmedCount + ' observaciones ya confirmadas</strong> en sesiones anteriores.</div>'
+      + '<button onclick="clearConfirmedRows();autoLoad();" style="background:none;border:1px solid rgba(16,185,129,0.3);border-radius:6px;color:var(--green);font-family:var(--mono);font-size:10px;padding:4px 10px;cursor:pointer;">Resetear historial</button>';
     screen.appendChild(prevBanner);
   }
 
-  // ── Header
+  // Header
   const header = document.createElement('div');
   header.className = 'val-header fade-in';
-  header.innerHTML = `
-    <div class="val-icon ${iconClass}">${icon}</div>
-    <div>
-      <div class="val-title">${title}</div>
-      <div class="val-subtitle">Revisa los datos antes de confirmar · Última actualización: ${new Date().toLocaleString('es-CO')}</div>
-    </div>
-  `;
+  const iconEl = document.createElement('div');
+  iconEl.className = 'val-icon ' + iconClass;
+  iconEl.textContent = icon;
+  const titleEl = document.createElement('div');
+  titleEl.innerHTML = '<div class="val-title">' + title + '</div>'
+    + '<div class="val-subtitle">Revisa los datos antes de confirmar · ' + new Date().toLocaleString('es-CO') + '</div>';
+  header.appendChild(iconEl);
+  header.appendChild(titleEl);
   screen.appendChild(header);
 
-  // ── Summary cards
+  // Summary cards
   const sumGrid = document.createElement('div');
   sumGrid.className = 'summary-grid fade-in';
-  sumGrid.innerHTML = `
-    <div class="sum-card">
-      <div class="sum-label">Registros cargados</div>
-      <div class="sum-value">${allRecords.length}</div>
-      <div class="sum-sub">de ${totalRows} filas en Sheet</div>
-    </div>
-    <div class="sum-card">
-      <div class="sum-label">Fechas únicas</div>
-      <div class="sum-value">${uniqueDates.length}</div>
-      <div class="sum-sub">${firstDate} → ${lastDate}</div>
-    </div>
-    <div class="sum-card">
-      <div class="sum-label">Hoteles detectados</div>
-      <div class="sum-value">${[...new Set(allRecords.map(r => r.code))].length}</div>
-      <div class="sum-sub">de 14 configurados</div>
-    </div>
-    <div class="sum-card">
-      <div class="sum-label">Observaciones</div>
-      <div class="sum-value" style="color:${hasIssues ? 'var(--yellow)' : 'var(--green)'}">${warnings.length + anomalies.length}</div>
-      <div class="sum-sub">${errors.length} errores · ${corrected.length} correcciones</div>
-    </div>
-  `;
+  sumGrid.innerHTML = ''
+    + '<div class="sum-card"><div class="sum-label">Registros cargados</div><div class="sum-value">' + allRecords.length + '</div><div class="sum-sub">de ' + totalRows + ' filas en Sheet</div></div>'
+    + '<div class="sum-card"><div class="sum-label">Fechas únicas</div><div class="sum-value">' + uniqueDates.length + '</div><div class="sum-sub">' + firstDate + ' → ' + lastDate + '</div></div>'
+    + '<div class="sum-card"><div class="sum-label">Hoteles detectados</div><div class="sum-value">' + [...new Set(allRecords.map(r => r.code))].length + '</div><div class="sum-sub">de 14 configurados</div></div>'
+    + '<div class="sum-card"><div class="sum-label">Observaciones nuevas</div><div class="sum-value" style="color:' + (hasIssues ? 'var(--yellow)' : 'var(--green)') + '">' + (corrected.length+errors.length+ambiguous.length+newAnoms.length) + '</div><div class="sum-sub">' + errors.length + ' errores · ' + corrected.length + ' correcciones</div></div>';
   screen.appendChild(sumGrid);
 
-  // ── Period preview
+  // Period preview
   if (lastDateObj) {
     const periodDiv = document.createElement('div');
     periodDiv.className = 'fade-in';
     periodDiv.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr;gap:16px;';
-    periodDiv.innerHTML = `
-      <div>
-        <div class="sum-label">Período 7 días</div>
-        <div style="font-family:var(--mono);font-size:14px;color:var(--accent);margin-top:4px">${formatDate(start7d)} → ${formatDate(lastDateObj)}</div>
-        <div class="sum-sub">Registros: ${allRecords.filter(r => r.dateObj >= start7d).length}</div>
-      </div>
-      <div>
-        <div class="sum-label">Período 30 días</div>
-        <div style="font-family:var(--mono);font-size:14px;color:var(--accent2);margin-top:4px">${formatDate(start30d)} → ${formatDate(lastDateObj)}</div>
-        <div class="sum-sub">Registros: ${allRecords.filter(r => r.dateObj >= start30d).length}</div>
-      </div>
-    `;
+    periodDiv.innerHTML = ''
+      + '<div><div class="sum-label">Período 7 días</div><div style="font-family:var(--mono);font-size:14px;color:var(--accent);margin-top:4px">' + formatDate(start7d) + ' → ' + formatDate(lastDateObj) + '</div><div class="sum-sub">Registros: ' + allRecords.filter(r => r.dateObj >= start7d).length + '</div></div>'
+      + '<div><div class="sum-label">Período 30 días</div><div style="font-family:var(--mono);font-size:14px;color:var(--accent2);margin-top:4px">' + formatDate(start30d) + ' → ' + formatDate(lastDateObj) + '</div><div class="sum-sub">Registros: ' + allRecords.filter(r => r.dateObj >= start30d).length + '</div></div>';
     screen.appendChild(periodDiv);
   }
 
-  // ── Build full interactive date review panel
   buildDateReviewPanel(screen, dateParseResults, anomalies, allRecords, uniqueDates, hasIssues);
 
-  setStatus('warn', `${allRecords.length} registros · Pendiente confirmación`);
+  setStatus('warn', allRecords.length + ' registros · Pendiente confirmación');
   document.getElementById('instructions-panel').style.display = 'none';
 }
 
-// ── Fingerprint de una fila: fecha + hotel + checkin (suficiente para identificar unívocamente)
-function rowFingerprint(dp) {
-  return dp.interpreted + '|' + (dp.innCode || '');
-}
-
-// ── Cargar set de filas ya confirmadas desde localStorage
-function loadConfirmedRows() {
-  try {
-    const raw = localStorage.getItem('kipsu_confirmed_rows');
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch(e) { return new Set(); }
-}
-
-// ── Guardar set de filas confirmadas en localStorage
-function saveConfirmedRows(set) {
-  try {
-    localStorage.setItem('kipsu_confirmed_rows', JSON.stringify([...set]));
-  } catch(e) {}
-}
-
-// ── Limpiar historial de confirmaciones (botón de reset)
-function clearConfirmedRows() {
-  try { localStorage.removeItem('kipsu_confirmed_rows'); } catch(e) {}
-}
 
 function confirmAndShow() {
   dataConfirmed = true;
