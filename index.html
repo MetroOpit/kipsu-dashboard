@@ -872,164 +872,218 @@
   }
 
   /* ══════════════════════════════════════════════
-     MOBILE  (max 768px)
+     MOBILE VERTICAL  (max 768px)
+     Diseñado para 390px–768px en portrait
   ══════════════════════════════════════════════ */
   @media (max-width: 768px) {
-    /* Layout */
+
+    /* ── Márgenes globales */
     .header, #config-panel, #validation-screen,
     #filters-bar, #period-info, #kpi-summary,
     #hotel-grid, .instructions, #error-panel {
-      margin-left: 12px;
-      margin-right: 12px;
+      margin-left: 10px;
+      margin-right: 10px;
     }
 
-    /* Header */
-    .header { padding: 14px 16px; flex-wrap: wrap; gap: 8px; }
-    .logo-text { font-size: 15px; }
-    .logo-sub  { font-size: 10px; }
-    .logo-badge { width: 34px; height: 34px; font-size: 12px; }
-    .header-right { gap: 6px; }
+    /* ── Header compacto */
+    .header {
+      padding: 12px 14px;
+      flex-wrap: nowrap;
+      gap: 8px;
+    }
+    .logo-badge { width: 32px; height: 32px; font-size: 11px; border-radius: 8px; }
+    .logo-text  { font-size: 14px; }
+    .logo-sub   { display: none; }
+    .header-right { gap: 6px; flex-shrink: 0; }
+    #status-pill { padding: 4px 8px; }
     #status-pill span { font-size: 10px; }
-    #admin-btn-wrap button { font-size: 9px !important; padding: 4px 7px !important; }
+    #admin-btn-wrap button { font-size: 9px !important; padding: 3px 6px !important; }
 
-    /* KPI cards — stack vertically */
+    /* ── KPI globales: 3 chips horizontales en una fila */
     #kpi-summary {
-      grid-template-columns: 1fr !important;
-      gap: 10px;
+      grid-template-columns: 1fr 1fr 1fr !important;
+      gap: 6px;
     }
-    .kpi-card { padding: 16px 18px; }
-    .kpi-val  { font-size: 28px; }
+    .kpi-card {
+      padding: 10px 10px 8px;
+      border-radius: 10px;
+    }
+    .kpi-card::before { height: 2px; }
+    .kpi-name { font-size: 8px; letter-spacing: 0.3px; margin-bottom: 4px; }
+    .kpi-val  { font-size: 18px; margin-bottom: 2px; }
+    .kpi-meta { display: none; }
+    .kpi-target { font-size: 8px; top: 10px; right: 10px; }
 
-    /* Summary cards in validation — 2 cols */
-    .summary-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
-    .sum-value { font-size: 18px; }
+    /* ── Período info */
+    #period-info {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      padding: 8px 12px;
+    }
+    .period-range { font-size: 11px; }
+    .period-stats { font-size: 10px; flex-wrap: wrap; gap: 6px; }
 
-    /* Filters bar — wrap and stack */
+    /* ── Filtros: apilados en 2 filas */
     #filters-bar {
       flex-wrap: wrap;
-      gap: 8px;
-      padding: 10px 12px;
+      gap: 6px;
+      padding: 10px;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      margin-bottom: 12px;
+      border-radius: 10px;
+      margin-bottom: 10px;
     }
     .period-tabs { width: 100%; }
-    .period-tab  { flex: 1; font-size: 11px; padding: 6px 8px; }
-    #custom-range-row { width: 100%; }
-    #custom-range-row input[type=date] { width: 90px; font-size: 11px; }
+    .period-tab  { flex: 1; font-size: 10px; padding: 5px 4px; }
+    #custom-range-row { width: 100%; gap: 4px; }
+    #custom-range-row input[type=date] { width: 85px; font-size: 10px; }
     .filter-sep  { display: none; }
-    .filter-label { font-size: 10px; }
-    select       { font-size: 11px; padding: 6px 8px; flex: 1; }
+    .filter-label { font-size: 10px; white-space: nowrap; }
+    select { font-size: 11px; padding: 5px 6px; flex: 1; min-width: 0; }
+    #filters-bar > div[style*="margin-left:auto"] { margin-left: 0 !important; width: 100%; }
+    #filters-bar button[onclick*="autoLoad"] { width: 100%; font-size: 11px; }
 
-    /* Period info bar */
-    #period-info { flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 14px; }
-    .period-range { font-size: 11px; }
-    .period-stats { font-size: 10px; flex-wrap: wrap; gap: 8px; }
-
-    /* Hotels table — mobile card view */
-    .hotels-table { border-radius: 12px; }
-    .hotels-table table { display: block; }
+    /* ══════════════════════════════
+       TABLA DE HOTELES — SCORECARD
+       Una tarjeta por hotel, todo visible
+    ══════════════════════════════ */
+    .hotels-table { border-radius: 10px; overflow: hidden; }
+    .hotels-table table,
+    .hotels-table tbody,
+    .hotels-table thead { display: block; width: 100%; }
     .hotels-table thead { display: none; }
-    .hotels-table tbody { display: block; }
-    .hotels-table tbody tr {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 6px;
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--border);
-      align-items: center;
-    }
+
+    /* Country separator */
     .hotels-table tbody tr.country-row {
-      display: block;
-      padding: 8px 14px;
-    }
-    .hotels-table tbody tr.country-row td { display: block; }
-    .hotels-table td {
-      padding: 0 !important;
-      text-align: left !important;
-      font-size: 11px;
-    }
-    /* Hotel name cell spans full width */
-    .hotels-table td:first-child {
-      grid-column: 1 / -1;
-      margin-bottom: 4px;
-    }
-    .hotel-code { font-size: 13px; }
-    .hotel-pos  { font-size: 10px; }
-    .hotel-country { font-size: 9px; }
-    /* KPI cells in card */
-    .bar-wrap { justify-content: flex-start; gap: 6px; }
-    .bar-bg   { width: 50px; }
-    .kpi-cell { font-size: 12px; }
-    /* Hide records count and status badge on mobile */
-    .hotels-table td:nth-child(5) { display: none; }
-    .hotels-table td:nth-child(6) { 
-      grid-column: 3;
       display: flex;
-      justify-content: flex-end;
+      padding: 7px 12px;
+      background: var(--surface2);
+    }
+    .hotels-table tbody tr.country-row td {
+      font-size: 9px !important;
+      padding: 0 !important;
+      color: var(--text3) !important;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
 
-    /* Date review table — horizontal scroll */
-    .date-table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .date-table table { min-width: 600px; }
-    #dr-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    #dr-table-wrap table { min-width: 700px; }
+    /* Hotel row → compact scorecard */
+    .hotels-table tbody tr:not(.country-row) {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      padding: 10px 12px;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: nowrap;
+    }
+
+    /* Col 1: Hotel name + country — fixed width */
+    .hotels-table td:nth-child(1) {
+      flex: 0 0 68px;
+      padding: 0 !important;
+      min-width: 0;
+    }
+    .hotel-pos     { display: none; }
+    .hotel-code    { font-size: 12px; font-weight: 600; display: block; }
+    .hotel-country { font-size: 9px; color: var(--text3); margin-top: 1px; }
+
+    /* Col 2,3,4: KPI values — equal flex, centered */
+    .hotels-table td:nth-child(2),
+    .hotels-table td:nth-child(3),
+    .hotels-table td:nth-child(4) {
+      flex: 1;
+      padding: 0 4px !important;
+      text-align: center !important;
+    }
+    .bar-wrap {
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      justify-content: center;
+    }
+    .bar-bg { width: 100%; max-width: 48px; height: 3px; }
+    .kpi-cell { font-size: 11px; font-weight: 600; }
+
+    /* Col 5 (records): hidden */
+    .hotels-table td:nth-child(5) { display: none !important; }
+
+    /* Col 6 (status badge): small, right-aligned */
+    .hotels-table td:nth-child(6) {
+      flex: 0 0 auto;
+      padding: 0 !important;
+      text-align: right !important;
+    }
+    .badge { font-size: 8px !important; padding: 2px 5px !important; }
+
+    /* Section header */
+    .section-header { flex-direction: column; align-items: flex-start; gap: 2px; margin-bottom: 10px; }
+    .section-title  { font-size: 13px; }
+    .section-count  { font-size: 10px; }
+
+    /* Validation summary */
+    .summary-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sum-card     { padding: 12px 14px; }
+    .sum-value    { font-size: 20px; }
+    .sum-label    { font-size: 9px; }
+    .sum-sub      { font-size: 10px; }
 
     /* Validation header */
-    .val-header { flex-direction: column; align-items: flex-start; gap: 8px; }
-    .val-icon   { width: 36px; height: 36px; font-size: 16px; }
-    .val-title  { font-size: 14px; }
+    .val-header { flex-direction: row; align-items: center; gap: 10px; }
+    .val-icon   { width: 32px; height: 32px; font-size: 14px; flex-shrink: 0; }
+    .val-title  { font-size: 13px; }
+    .val-subtitle { font-size: 10px; }
 
     /* Confirm bar */
-    .confirm-bar { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .confirm-bar { flex-direction: column; gap: 10px; padding: 14px 16px; }
+    .confirm-text { font-size: 12px; }
     .confirm-actions { width: 100%; display: flex; gap: 8px; }
-    .confirm-actions .btn { flex: 1; text-align: center; }
+    .confirm-actions .btn { flex: 1; text-align: center; font-size: 12px; padding: 10px 8px; }
 
-    /* Filter tabs in date review — scrollable */
-    #dr-filter-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+    /* Date review scrollable tables */
+    .date-table   { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .date-table table { min-width: 560px; }
+    #dr-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    #dr-table-wrap table { min-width: 640px; }
+    #dr-filter-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
     #dr-filter-tabs::-webkit-scrollbar { height: 2px; }
-    #dr-filter-tabs::-webkit-scrollbar-thumb { background: var(--border2); }
-
-    /* Pagination */
-    #dr-pagination { flex-direction: column; gap: 8px; }
+    #dr-pagination  { flex-direction: column; gap: 6px; }
     #dr-pagination > div { width: 100%; }
 
-    /* Period preview grid */
-    div[style*="grid-template-columns:1fr 1fr"] {
+    /* Fix inline style grids in validation */
+    div[style*="grid-template-columns:1fr 1fr"],
+    div[style*="grid-template-columns: 1fr 1fr"] {
       grid-template-columns: 1fr !important;
     }
 
-    /* Instructions */
-    .inst-steps { grid-template-columns: 1fr; }
-    .inst-step  { gap: 8px; }
-    .step-text  { font-size: 10px; }
-
-    /* Config panel */
-    #config-panel { padding: 20px 16px; }
-    .config-grid  { grid-template-columns: 1fr; }
-    .btn-primary  { width: 100%; margin-top: 4px; }
+    /* Config / instructions */
+    #config-panel { padding: 16px 14px; margin-top: 10px; }
+    .config-grid  { grid-template-columns: 1fr; gap: 8px; }
+    .btn-primary  { width: 100%; }
+    .inst-steps   { grid-template-columns: 1fr; gap: 10px; }
+    .step-text    { font-size: 10px; }
   }
 
   /* ══════════════════════════════════════════════
-     SMALL MOBILE  (max 480px)
+     SMALL MOBILE  (max 390px — iPhone SE, etc.)
   ══════════════════════════════════════════════ */
-  @media (max-width: 480px) {
+  @media (max-width: 390px) {
     .header, #config-panel, #validation-screen,
     #filters-bar, #period-info, #kpi-summary,
     #hotel-grid, .instructions, #error-panel {
-      margin-left: 8px;
-      margin-right: 8px;
+      margin-left: 6px;
+      margin-right: 6px;
     }
-    .kpi-val { font-size: 24px; }
-    .summary-grid { grid-template-columns: 1fr; }
-    .sum-value { font-size: 20px; }
-    .hotels-table tbody tr {
-      grid-template-columns: 1fr 1fr;
-    }
-    .hotels-table td:nth-child(4) { display: none; }
-    #kpi-summary { gap: 8px; }
-    .kpi-card { padding: 14px 16px; }
+    #kpi-summary { gap: 4px; }
+    .kpi-card    { padding: 8px; }
+    .kpi-val     { font-size: 15px; }
+    .kpi-name    { font-size: 7px; }
+    .hotels-table td:nth-child(1) { flex: 0 0 58px; }
+    .hotel-code  { font-size: 11px; }
+    .kpi-cell    { font-size: 10px; }
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+    .sum-value   { font-size: 18px; }
   }
 </style>
 </head>
@@ -1182,7 +1236,7 @@ const HOTEL_COUNTRY = {
 
 // ── CLAVE DE ADMINISTRADOR — solo el admin ve la validación de fechas
 // Cambia este valor por tu propia clave secreta
-const ADMIN_KEY = 'Tecnologia2026*';
+const ADMIN_KEY = 'metro2026admin';
 
 // VALID_MONTHS removed — months are no longer restricted to 1-3. Validation now uses: (1) no future dates, (2) ascending order.
 
