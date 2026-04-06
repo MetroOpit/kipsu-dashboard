@@ -863,6 +863,20 @@
 </head>
 <body>
 
+<!-- LOADING OVERLAY — shown while auto-loading, hidden once done -->
+<div id="loading-overlay" style="
+  position:fixed;inset:0;z-index:999;
+  background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+">
+  <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;font-size:16px;color:#fff;">MH</div>
+  <div style="font-family:var(--display);font-size:18px;font-weight:700;color:var(--text);">KIPSU Dashboard</div>
+  <div style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--text3);">
+    <span class="spinner"></span>
+    <span id="overlay-msg">Cargando datos...</span>
+  </div>
+</div>
+
 <!-- HEADER -->
 <header class="header">
   <div class="logo-area">
@@ -914,7 +928,7 @@
     </div>
     <div>
       <div class="field-label">&nbsp;</div>
-      <button class="btn btn-primary" onclick="loadData()">
+      <button class="btn btn-primary" onclick="autoLoad()">
         <span id="load-btn-text">Cargar datos</span>
       </button>
     </div>
@@ -995,7 +1009,7 @@ const HOTEL_COUNTRY = {
 
 // ── FUENTE DE DATOS PRINCIPAL: Google Apps Script (sin proxies, sin CORS)
 // Reemplaza este valor con la URL de tu Apps Script después de desplegarlo
-const SCRIPT_URL  = https://script.google.com/macros/s/AKfycbyGH_lrbMLwWVbTMXt-GysTsew3VSDIt_pH6yD4amdyZpss4ejBvF37HIG4xJ_0-54QYA/exec;
+const SCRIPT_URL  = 'REEMPLAZAR_CON_URL_DEL_SCRIPT';
 
 // ── FUENTE ALTERNATIVA: CSV directo de Google Sheets (backup)
 const SHEETS_CSV  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqhyQaUZp2LQ5CnBl5A1YKTSXzUS__zgnFEj882GnEHvI2Trj_I-Oa9WVKfUVy36l4kVwhb_0TSkfP/pub?gid=702796208&single=true&output=csv';
@@ -1256,16 +1270,35 @@ async function loadData() {
   }
 
   setBtnLoading(false);
+  hideOverlay();
 }
 
-function showLoadError(errMsg, csvUrl) {
-  // Mostrar panel de error con instrucciones de carga manual
+function hideOverlay() {
+  const ov = document.getElementById('loading-overlay');
+  if (ov) {
+    ov.style.transition = 'opacity 0.3s';
+    ov.style.opacity = '0';
+    setTimeout(() => { if (ov) ov.style.display = 'none'; }, 320);
+  }
+}
+
+function showLoadError(errMsg) {
+  // Asegurar que haya algo visible en la página
+  document.getElementById('instructions-panel').style.display = 'none';
+  document.getElementById('config-panel').style.display = 'none';
+
   let panel = document.getElementById('error-panel');
   if (!panel) {
     panel = document.createElement('div');
     panel.id = 'error-panel';
-    panel.style.cssText = 'margin:0 40px 24px;padding:24px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:16px;';
-    document.getElementById('config-panel').after(panel);
+    panel.style.cssText = 'margin:32px 40px 24px;padding:24px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:16px;';
+    // Insert right after header — always visible regardless of other panels
+    const header = document.querySelector('.header');
+    if (header && header.nextSibling) {
+      header.parentNode.insertBefore(panel, header.nextSibling);
+    } else {
+      document.body.appendChild(panel);
+    }
   }
   panel.style.display = 'block';
   panel.innerHTML = `
@@ -1939,6 +1972,9 @@ function setStatus(type, text) {
   span.textContent = text;
   const dot = pill.querySelector('.dot');
   dot.className = `dot ${type === 'loading' ? 'pulse' : ''}`;
+  // Update loading overlay message
+  const overlayMsg = document.getElementById('overlay-msg');
+  if (overlayMsg) overlayMsg.textContent = text;
 }
 
 function setBtnLoading(loading) {
@@ -2004,9 +2040,7 @@ async function autoLoad() {
     }
   } catch (err) {
     setStatus('error', 'Error al cargar');
-    // Mostrar instrucciones y panel de error como fallback
-    document.getElementById('instructions-panel').style.display = 'block';
-    showLoadError(err.message, SHEETS_URL);
+    showLoadError(err.message);
   }
 
   setBtnLoading(false);
