@@ -432,6 +432,7 @@
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
+    row-gap: 8px;
   }
 
   .period-tabs {
@@ -441,6 +442,7 @@
     border-radius: 10px;
     padding: 3px;
     gap: 2px;
+    flex-shrink: 0;
   }
 
   .period-tab {
@@ -851,13 +853,183 @@
   .date-range-apply:hover { opacity: 0.8; }
 
   /* Responsive */
-  @media (max-width: 900px) {
-    .header, #config-panel, #validation-screen, #filters-bar,
-    #period-info, #kpi-summary, #hotel-grid, .instructions { margin-left: 16px; margin-right: 16px; }
-    .header { padding: 16px; }
+
+  /* ══════════════════════════════════════════════
+     TABLET  (max 1024px)
+  ══════════════════════════════════════════════ */
+  @media (max-width: 1024px) {
+    .header, #config-panel, #validation-screen,
+    #filters-bar, #period-info, #kpi-summary,
+    #hotel-grid, .instructions, #error-panel {
+      margin-left: 20px;
+      margin-right: 20px;
+    }
+    #kpi-summary { grid-template-columns: 1fr 1fr; }
     .summary-grid { grid-template-columns: repeat(2, 1fr); }
-    #kpi-summary { grid-template-columns: 1fr; }
+    .inst-steps { grid-template-columns: 1fr 1fr; }
+    .hotels-table thead th:nth-child(5),
+    .hotels-table tbody td:nth-child(5) { display: none; }
+  }
+
+  /* ══════════════════════════════════════════════
+     MOBILE  (max 768px)
+  ══════════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    /* Layout */
+    .header, #config-panel, #validation-screen,
+    #filters-bar, #period-info, #kpi-summary,
+    #hotel-grid, .instructions, #error-panel {
+      margin-left: 12px;
+      margin-right: 12px;
+    }
+
+    /* Header */
+    .header { padding: 14px 16px; flex-wrap: wrap; gap: 8px; }
+    .logo-text { font-size: 15px; }
+    .logo-sub  { font-size: 10px; }
+    .logo-badge { width: 34px; height: 34px; font-size: 12px; }
+    .header-right { gap: 6px; }
+    #status-pill span { font-size: 10px; }
+    #admin-btn-wrap button { font-size: 9px !important; padding: 4px 7px !important; }
+
+    /* KPI cards — stack vertically */
+    #kpi-summary {
+      grid-template-columns: 1fr !important;
+      gap: 10px;
+    }
+    .kpi-card { padding: 16px 18px; }
+    .kpi-val  { font-size: 28px; }
+
+    /* Summary cards in validation — 2 cols */
+    .summary-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sum-value { font-size: 18px; }
+
+    /* Filters bar — wrap and stack */
+    #filters-bar {
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+    .period-tabs { width: 100%; }
+    .period-tab  { flex: 1; font-size: 11px; padding: 6px 8px; }
+    #custom-range-row { width: 100%; }
+    #custom-range-row input[type=date] { width: 90px; font-size: 11px; }
+    .filter-sep  { display: none; }
+    .filter-label { font-size: 10px; }
+    select       { font-size: 11px; padding: 6px 8px; flex: 1; }
+
+    /* Period info bar */
+    #period-info { flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 14px; }
+    .period-range { font-size: 11px; }
+    .period-stats { font-size: 10px; flex-wrap: wrap; gap: 8px; }
+
+    /* Hotels table — mobile card view */
+    .hotels-table { border-radius: 12px; }
+    .hotels-table table { display: block; }
+    .hotels-table thead { display: none; }
+    .hotels-table tbody { display: block; }
+    .hotels-table tbody tr {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+    }
+    .hotels-table tbody tr.country-row {
+      display: block;
+      padding: 8px 14px;
+    }
+    .hotels-table tbody tr.country-row td { display: block; }
+    .hotels-table td {
+      padding: 0 !important;
+      text-align: left !important;
+      font-size: 11px;
+    }
+    /* Hotel name cell spans full width */
+    .hotels-table td:first-child {
+      grid-column: 1 / -1;
+      margin-bottom: 4px;
+    }
+    .hotel-code { font-size: 13px; }
+    .hotel-pos  { font-size: 10px; }
+    .hotel-country { font-size: 9px; }
+    /* KPI cells in card */
+    .bar-wrap { justify-content: flex-start; gap: 6px; }
+    .bar-bg   { width: 50px; }
+    .kpi-cell { font-size: 12px; }
+    /* Hide records count and status badge on mobile */
+    .hotels-table td:nth-child(5) { display: none; }
+    .hotels-table td:nth-child(6) { 
+      grid-column: 3;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    /* Date review table — horizontal scroll */
+    .date-table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .date-table table { min-width: 600px; }
+    #dr-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    #dr-table-wrap table { min-width: 700px; }
+
+    /* Validation header */
+    .val-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .val-icon   { width: 36px; height: 36px; font-size: 16px; }
+    .val-title  { font-size: 14px; }
+
+    /* Confirm bar */
+    .confirm-bar { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .confirm-actions { width: 100%; display: flex; gap: 8px; }
+    .confirm-actions .btn { flex: 1; text-align: center; }
+
+    /* Filter tabs in date review — scrollable */
+    #dr-filter-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+    #dr-filter-tabs::-webkit-scrollbar { height: 2px; }
+    #dr-filter-tabs::-webkit-scrollbar-thumb { background: var(--border2); }
+
+    /* Pagination */
+    #dr-pagination { flex-direction: column; gap: 8px; }
+    #dr-pagination > div { width: 100%; }
+
+    /* Period preview grid */
+    div[style*="grid-template-columns:1fr 1fr"] {
+      grid-template-columns: 1fr !important;
+    }
+
+    /* Instructions */
     .inst-steps { grid-template-columns: 1fr; }
+    .inst-step  { gap: 8px; }
+    .step-text  { font-size: 10px; }
+
+    /* Config panel */
+    #config-panel { padding: 20px 16px; }
+    .config-grid  { grid-template-columns: 1fr; }
+    .btn-primary  { width: 100%; margin-top: 4px; }
+  }
+
+  /* ══════════════════════════════════════════════
+     SMALL MOBILE  (max 480px)
+  ══════════════════════════════════════════════ */
+  @media (max-width: 480px) {
+    .header, #config-panel, #validation-screen,
+    #filters-bar, #period-info, #kpi-summary,
+    #hotel-grid, .instructions, #error-panel {
+      margin-left: 8px;
+      margin-right: 8px;
+    }
+    .kpi-val { font-size: 24px; }
+    .summary-grid { grid-template-columns: 1fr; }
+    .sum-value { font-size: 20px; }
+    .hotels-table tbody tr {
+      grid-template-columns: 1fr 1fr;
+    }
+    .hotels-table td:nth-child(4) { display: none; }
+    #kpi-summary { gap: 8px; }
+    .kpi-card { padding: 14px 16px; }
   }
 </style>
 </head>
@@ -1010,7 +1182,7 @@ const HOTEL_COUNTRY = {
 
 // ── CLAVE DE ADMINISTRADOR — solo el admin ve la validación de fechas
 // Cambia este valor por tu propia clave secreta
-const ADMIN_KEY = 'Tecnologia2026*';
+const ADMIN_KEY = 'metro2026admin';
 
 // VALID_MONTHS removed — months are no longer restricted to 1-3. Validation now uses: (1) no future dates, (2) ascending order.
 
