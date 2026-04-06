@@ -993,8 +993,12 @@ const HOTEL_COUNTRY = {
 
 // VALID_MONTHS removed — months are no longer restricted to 1-3. Validation now uses: (1) no future dates, (2) ascending order.
 
-// ── URL fija de Google Sheets (se carga automáticamente al abrir)
-const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqhyQaUZp2LQ5CnBl5A1YKTSXzUS__zgnFEj882GnEHvI2Trj_I-Oa9WVKfUVy36l4kVwhb_0TSkfP/pub?gid=702796208&single=true&output=csv';
+// ── FUENTE DE DATOS PRINCIPAL: Google Apps Script (sin proxies, sin CORS)
+// Reemplaza este valor con la URL de tu Apps Script después de desplegarlo
+const SCRIPT_URL  = 'REEMPLAZAR_CON_URL_DEL_SCRIPT';
+
+// ── FUENTE ALTERNATIVA: CSV directo de Google Sheets (backup)
+const SHEETS_CSV  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqhyQaUZp2LQ5CnBl5A1YKTSXzUS__zgnFEj882GnEHvI2Trj_I-Oa9WVKfUVy36l4kVwhb_0TSkfP/pub?gid=702796208&single=true&output=csv';
 
 let allRecords = [];
 let currentPeriod = '7d';   // '7d' | '30d' | 'custom'
@@ -1141,37 +1145,94 @@ function dateToKey(d) {
 // DATA LOADING
 // ============================================================================
 
-// ── CORS proxies en cascada (se intenta en orden hasta que uno funcione)
-const CORS_PROXIES = [
-  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-  url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-  url => `https://cors-anywhere.herokuapp.com/${url}`,
-];
+// ── Estrategia de carga en cascada:
+//    1. Google Apps Script (directo, sin CORS) ← más confiable
+//    2. CSV directo de Google Sheets           ← a veces funciona sin proxy
+//    3. corsproxy.io                           ← proxy externo backup
+//    4. allorigins.win                         ← proxy externo backup 2
+//    5. Modo manual                            ← siempre funciona
 
-async function fetchViaProxy(csvUrl) {
-  let lastErr = null;
-  for (let i = 0; i < CORS_PROXIES.length; i++) {
-    const proxyUrl = CORS_PROXIES[i](csvUrl);
-    setStatus('loading', `Intentando servidor ${i+1}/3...`);
+async function fetchData() {
+  const errors = [];
+
+  // ── 1. Google Apps Script (si ya está configurado)
+  if (SCRIPT_URL && SCRIPT_URL !== 'REEMPLAZAR_CON_URL_DEL_SCRIPT') {
+    setStatus('loading', 'Conectando con fuente principal...');
     try {
-      const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const resp = await fetch(SCRIPT_URL, { signal: AbortSignal.timeout(12000) });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const text = await resp.text();
-      // allorigins devuelve JSON con .contents
-      if (proxyUrl.includes('allorigins')) {
-        const json = JSON.parse(text);
-        if (json.contents && json.contents.length > 10) return json.contents;
-        throw new Error('Respuesta vacía de allorigins');
+      if (text && text.length > 20) {
+        console.log('✅ Datos cargados vía Apps Script');
+        return text;
       }
-      if (text && text.length > 10) return text;
-      throw new Error('Respuesta vacía');
-    } catch (err) {
-      lastErr = err;
-      console.warn(`Proxy ${i+1} falló:`, err.message);
+      throw new Error('Respuesta vacía del script');
+    } catch (e) {
+      errors.push('Apps Script: ' + e.message);
+      console.warn('Apps Script falló:', e.message);
     }
   }
-  throw new Error(`Todos los proxies fallaron. Último error: ${lastErr?.message}\n\nUsa el modo manual (botón de abajo).`);
+
+  // ── 2. CSV directo (funciona si el Sheet es público y el navegador lo permite)
+  setStatus('loading', 'Intentando fuente directa...');
+  try {
+    const resp = await fetch(SHEETS_CSV, { signal: AbortSignal.timeout(8000) });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+    if (text && text.length > 20 && !text.includes('<html')) {
+      console.log('✅ Datos cargados vía CSV directo');
+      return text;
+    }
+    throw new Error('Respuesta inválida (posiblemente HTML de redirección)');
+  } catch (e) {
+    errors.push('CSV directo: ' + e.message);
+    console.warn('CSV directo falló:', e.message);
+  }
+
+  // ── 3. corsproxy.io
+  setStatus('loading', 'Intentando proxy 1/2...');
+  try {
+    const url = 'https://corsproxy.io/?' + encodeURIComponent(SHEETS_CSV);
+    const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+    if (text && text.length > 20 && !text.includes('<html')) {
+      console.log('✅ Datos cargados vía corsproxy.io');
+      return text;
+    }
+    throw new Error('Respuesta inválida');
+  } catch (e) {
+    errors.push('corsproxy.io: ' + e.message);
+    console.warn('corsproxy.io falló:', e.message);
+  }
+
+  // ── 4. allorigins.win
+  setStatus('loading', 'Intentando proxy 2/2...');
+  try {
+    const url = 'https://api.allorigins.win/get?url=' + encodeURIComponent(SHEETS_CSV);
+    const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json = await resp.json();
+    if (json.contents && json.contents.length > 20) {
+      console.log('✅ Datos cargados vía allorigins');
+      return json.contents;
+    }
+    throw new Error('Respuesta vacía');
+  } catch (e) {
+    errors.push('allorigins: ' + e.message);
+    console.warn('allorigins falló:', e.message);
+  }
+
+  // ── Todos fallaron
+  throw new Error(
+    'No se pudo conectar con ninguna fuente.\n\n' +
+    'Detalle técnico:\n' + errors.join('\n') +
+    '\n\nUsa la carga manual (pega el CSV abajo).'
+  );
 }
+
+// Alias para compatibilidad con el resto del código
+async function fetchViaProxy(url) { return fetchData(); }
 
 async function loadData() {
   const url = document.getElementById('sheets-url').value.trim();
@@ -1226,7 +1287,8 @@ function showLoadError(errMsg, csvUrl) {
 
     <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--text3)">
       <strong style="color:var(--text2)">¿Por qué falla la carga automática?</strong><br>
-      Los navegadores bloquean solicitudes directas a Google Sheets por seguridad (CORS). Los proxies intermediarios que usamos son servicios gratuitos que a veces están caídos o lentos. La carga manual siempre funciona.
+      Los navegadores bloquean solicitudes directas a Google Sheets por seguridad (CORS). Los proxies externos son servicios gratuitos que pueden estar caídos.<br><br>
+      <strong style="color:var(--accent)">✦ Solución permanente:</strong> Configura el <strong>Google Apps Script</strong> como fuente principal — es gratuito, tuyo, y nunca falla. Sigue las instrucciones en la documentación del dashboard.
     </div>
   `;
 }
@@ -1893,7 +1955,7 @@ function escHtml(str) {
 window.addEventListener('DOMContentLoaded', () => {
   // Pre-fill the URL field (visible para referencia)
   const urlInput = document.getElementById('sheets-url');
-  if (urlInput) urlInput.value = SHEETS_URL;
+  if (urlInput) urlInput.value = SHEETS_CSV;
   // Ocultar panel de instrucciones — datos se cargan solos
   const inst = document.getElementById('instructions-panel');
   if (inst) inst.style.display = 'none';
@@ -1906,7 +1968,7 @@ async function autoLoad() {
   setStatus('loading', 'Cargando datos...');
 
   try {
-    const csvText = await fetchViaProxy(SHEETS_URL);
+    const csvText = await fetchData();
     parseCSV(csvText);
 
     const confirmedRows = loadConfirmedRows();
