@@ -1166,19 +1166,62 @@ function dateToKey(d) {
 //    4. allorigins.win                         ← proxy externo backup 2
 //    5. Modo manual                            ← siempre funciona
 
+// ── fetchWithTimeout — compatible con todos los navegadores (sin AbortSignal.timeout)
+function fetchWithTimeout(url, ms) {
+  const fetchPromise = fetch(url).then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.text();
+  });
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Timeout después de ' + ms + 'ms')), ms)
+  );
+  return Promise.race([fetchPromise, timeoutPromise]);
+}
+
+// ── JSONP fetch — inyecta un <script> tag y espera el callback
+//    Único método que funciona 100% sin CORS desde cualquier dominio
+function fetchJSONP(url, timeout = 12000) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'kipsu_cb_' + Date.now();
+    const script = document.createElement('script');
+    let settled = false;
+
+    const cleanup = () => {
+      settled = true;
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
+
+    window[cbName] = (data) => {
+      cleanup();
+      if (typeof data === 'string' && data.startsWith('ERROR:')) {
+        reject(new Error(data));
+      } else {
+        resolve(data);
+      }
+    };
+
+    script.onerror = () => { cleanup(); reject(new Error('JSONP script load error')); };
+    setTimeout(() => { if (!settled) { cleanup(); reject(new Error('JSONP timeout')); } }, timeout);
+
+    // Apps Script needs callback as query param; also add cache-bust
+    const sep = url.includes('?') ? '&' : '?';
+    script.src = url + sep + 'callback=' + cbName + '&_=' + Date.now();
+    document.head.appendChild(script);
+  });
+}
+
 async function fetchData() {
   const errors = [];
 
-  // ── 1. Google Apps Script (si ya está configurado)
+  // ── 1. Google Apps Script vía JSONP (sin CORS, funciona desde cualquier dominio)
   if (SCRIPT_URL && SCRIPT_URL !== 'REEMPLAZAR_CON_URL_DEL_SCRIPT') {
     setStatus('loading', 'Conectando con fuente principal...');
     try {
-      const resp = await fetch(SCRIPT_URL, { signal: AbortSignal.timeout(12000) });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const text = await resp.text();
-      if (text && text.length > 20) {
-        console.log('✅ Datos cargados vía Apps Script');
-        return text;
+      const csv = await fetchJSONP(SCRIPT_URL);
+      if (csv && csv.length > 20) {
+        console.log('✅ Datos cargados vía Apps Script JSONP');
+        return csv;
       }
       throw new Error('Respuesta vacía del script');
     } catch (e) {
@@ -1187,17 +1230,15 @@ async function fetchData() {
     }
   }
 
-  // ── 2. CSV directo (funciona si el Sheet es público y el navegador lo permite)
+  // ── 2. CSV directo
   setStatus('loading', 'Intentando fuente directa...');
   try {
-    const resp = await fetch(SHEETS_CSV, { signal: AbortSignal.timeout(8000) });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const text = await resp.text();
-    if (text && text.length > 20 && !text.includes('<html')) {
+    const text = await fetchWithTimeout(SHEETS_CSV, 8000);
+    if (text && text.length > 20 && !text.includes('<!DOCTYPE') && !text.includes('<html')) {
       console.log('✅ Datos cargados vía CSV directo');
       return text;
     }
-    throw new Error('Respuesta inválida (posiblemente HTML de redirección)');
+    throw new Error('Respuesta inválida');
   } catch (e) {
     errors.push('CSV directo: ' + e.message);
     console.warn('CSV directo falló:', e.message);
@@ -1206,11 +1247,8 @@ async function fetchData() {
   // ── 3. corsproxy.io
   setStatus('loading', 'Intentando proxy 1/2...');
   try {
-    const url = 'https://corsproxy.io/?' + encodeURIComponent(SHEETS_CSV);
-    const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const text = await resp.text();
-    if (text && text.length > 20 && !text.includes('<html')) {
+    const text = await fetchWithTimeout('https://corsproxy.io/?' + encodeURIComponent(SHEETS_CSV), 10000);
+    if (text && text.length > 20 && !text.includes('<!DOCTYPE')) {
       console.log('✅ Datos cargados vía corsproxy.io');
       return text;
     }
@@ -1223,10 +1261,8 @@ async function fetchData() {
   // ── 4. allorigins.win
   setStatus('loading', 'Intentando proxy 2/2...');
   try {
-    const url = 'https://api.allorigins.win/get?url=' + encodeURIComponent(SHEETS_CSV);
-    const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const json = await resp.json();
+    const raw = await fetchWithTimeout('https://api.allorigins.win/get?url=' + encodeURIComponent(SHEETS_CSV), 10000);
+    const json = JSON.parse(raw);
     if (json.contents && json.contents.length > 20) {
       console.log('✅ Datos cargados vía allorigins');
       return json.contents;
