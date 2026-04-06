@@ -2015,8 +2015,9 @@ function setStatus(type, text) {
 
 function setBtnLoading(loading) {
   const btn = document.getElementById('load-btn-text');
+  if (!btn) return; // config panel may be hidden
   btn.innerHTML = loading ? '<span class="spinner"></span> Cargando...' : 'Cargar datos';
-  btn.parentElement.disabled = loading;
+  if (btn.parentElement) btn.parentElement.disabled = loading;
 }
 
 function escHtml(str) {
@@ -2074,12 +2075,14 @@ async function autoLoad() {
       setStatus('warn', newIssues.length + ' observaciones nuevas · Pendiente revisión');
       showValidationScreen(newIssues.length, newAnomalies.length);
     }
+
+    hideOverlay(); // ← siempre ocultar overlay cuando hay datos
+
   } catch (err) {
+    hideOverlay(); // ← también ocultar en error
     setStatus('error', 'Error al cargar');
     showLoadError(err.message);
   }
-
-  setBtnLoading(false);
 }
 
 // ============================================================================
