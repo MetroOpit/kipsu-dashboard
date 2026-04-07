@@ -2082,7 +2082,7 @@ function renderDashboard() {
   kpiSummary.innerHTML = `
     <div class="kpi-card ${global.wmsr !== null ? (global.wmsr >= 70 ? 'green' : global.wmsr >= 50 ? 'yellow' : 'red') : 'blue'} fade-in">
       <div class="kpi-name"><span class="kpi-name-full">Welcome Message Sent Ratio</span><span class="kpi-name-short">WMSR</span></div>
-      <div class="kpi-val ${wmsrColor(global.wmsr)}">${global.wmsr !== null ? global.wmsr.toFixed(1)+'%' : '—'}</div>
+      <div class="kpi-val ${wmsrColor(global.wmsr)}">${global.wmsr !== null ? global.wmsr.toFixed(0)+'%' : '—'}</div>
       <div class="kpi-meta">Total: ${recs.reduce((s,r)=>s+r.welcomeSent,0).toFixed(0)} enviados / ${recs.reduce((s,r)=>s+r.countCheckin,0).toFixed(0)} check-ins</div>
       <div class="kpi-target">Meta: 70%</div>
     </div>
@@ -2146,7 +2146,7 @@ function renderDashboard() {
           </td>
           <td>
             <div class="bar-wrap">
-              <span class="kpi-cell ${wc}">${h.wmsr !== null ? h.wmsr.toFixed(1)+'%' : '—'}</span>
+              <span class="kpi-cell ${wc}">${h.wmsr !== null ? h.wmsr.toFixed(0)+'%' : '—'}</span>
               <div class="bar-bg"><div class="bar-fill ${barColor(wc)}" style="width:${wPct}%"></div></div>
             </div>
           </td>
