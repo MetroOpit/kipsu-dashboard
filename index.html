@@ -528,26 +528,168 @@
   }
 
   .kpi-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
     border-radius: 16px;
     padding: 24px 28px;
     position: relative;
     overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .kpi-card:hover { transform: translateY(-2px); }
+
+  /* Color fill backgrounds per state */
+  .kpi-card.green {
+    background: linear-gradient(135deg, rgba(16,185,129,0.13) 0%, rgba(16,185,129,0.04) 100%);
+    border-color: rgba(16,185,129,0.35);
+  }
+  .kpi-card.yellow {
+    background: linear-gradient(135deg, rgba(245,158,11,0.13) 0%, rgba(245,158,11,0.04) 100%);
+    border-color: rgba(245,158,11,0.35);
+  }
+  .kpi-card.red {
+    background: linear-gradient(135deg, rgba(239,68,68,0.13) 0%, rgba(239,68,68,0.04) 100%);
+    border-color: rgba(239,68,68,0.35);
+  }
+  .kpi-card.blue {
+    background: linear-gradient(135deg, rgba(59,130,246,0.10) 0%, rgba(59,130,246,0.03) 100%);
+    border-color: rgba(59,130,246,0.3);
   }
 
   .kpi-card::before {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0;
-    height: 2px;
+    height: 3px;
     border-radius: 16px 16px 0 0;
   }
 
-  .kpi-card.green::before { background: linear-gradient(90deg, var(--green), transparent); }
+  .kpi-card.green::before  { background: linear-gradient(90deg, var(--green), transparent); }
   .kpi-card.yellow::before { background: linear-gradient(90deg, var(--yellow), transparent); }
-  .kpi-card.red::before { background: linear-gradient(90deg, var(--red), transparent); }
-  .kpi-card.blue::before { background: linear-gradient(90deg, var(--accent), transparent); }
+  .kpi-card.red::before    { background: linear-gradient(90deg, var(--red), transparent); }
+  .kpi-card.blue::before   { background: linear-gradient(90deg, var(--accent), transparent); }
+
+  /* State icon inside card */
+  .kpi-state-icon {
+    position: absolute;
+    top: 20px; right: 20px;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+  }
+  .kpi-card.green  .kpi-state-icon { background: rgba(16,185,129,0.15);  }
+  .kpi-card.yellow .kpi-state-icon { background: rgba(245,158,11,0.15); }
+  .kpi-card.red    .kpi-state-icon { background: rgba(239,68,68,0.15);   }
+  .kpi-card.blue   .kpi-state-icon { background: rgba(59,130,246,0.12);  }
+
+  /* Ranking panel */
+  #ranking-panel {
+    position: relative;
+    z-index: 10;
+    margin: 0 40px 40px;
+    display: none;
+  }
+
+  .ranking-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .rank-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .rank-card-header {
+    padding: 14px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .rank-card-title {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .rank-card-body { padding: 8px 0; }
+
+  .rank-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  .rank-row:last-child { border-bottom: none; }
+  .rank-row:hover { background: rgba(255,255,255,0.02); }
+
+  .rank-pos {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    font-family: var(--mono);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .rank-pos.gold   { background: rgba(245,158,11,0.2);  color: var(--yellow); }
+  .rank-pos.silver { background: rgba(148,163,184,0.2); color: var(--text2); }
+  .rank-pos.bronze { background: rgba(180,120,80,0.2);  color: #b47850; }
+  .rank-pos.normal { background: var(--surface2); color: var(--text3); }
+  .rank-pos.alert  { background: rgba(239,68,68,0.15);  color: var(--red); font-size: 12px; }
+
+  .rank-info { flex: 1; min-width: 0; }
+  .rank-name { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text); }
+  .rank-sub  { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-top: 1px; }
+
+  .rank-score {
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .rank-metas {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+
+  .meta-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+  }
+
+  .alert-row {
+    background: rgba(239,68,68,0.05);
+    border-left: 3px solid var(--red);
+  }
+
+  .no-data-row {
+    background: rgba(71,85,105,0.06);
+    border-left: 3px solid var(--text3);
+  }
+
+  @media (max-width: 768px) {
+    #ranking-panel { margin-left: 10px; margin-right: 10px; }
+    .ranking-grid  { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 390px) {
+    #ranking-panel { margin-left: 6px; margin-right: 6px; }
+  }
 
   .kpi-name {
     font-size: 10px;
@@ -1235,6 +1377,11 @@
   <!-- Populated dynamically -->
 </div>
 
+<!-- RANKING PANEL -->
+<div id="ranking-panel" style="display:none">
+  <!-- Populated dynamically -->
+</div>
+
 <script>
 // ============================================================================
 // CONFIGURACIÓN
@@ -1910,6 +2057,7 @@ function showMainDashboard() {
   document.getElementById('period-info').style.display = 'flex';
   document.getElementById('kpi-summary').style.display = 'grid';
   document.getElementById('hotel-grid').style.display = 'block';
+  document.getElementById('ranking-panel').style.display = 'block';
   renderAdminBtn();
   renderDashboard();
 }
@@ -1930,6 +2078,7 @@ function hideMainDashboard() {
   document.getElementById('period-info').style.display = 'none';
   document.getElementById('kpi-summary').style.display = 'none';
   document.getElementById('hotel-grid').style.display = 'none';
+  document.getElementById('ranking-panel').style.display = 'none';
 }
 
 function setPeriod(p, btn) {
@@ -2079,20 +2228,28 @@ function renderDashboard() {
   const global = calcKPIs(recs);
   const kpiSummary = document.getElementById('kpi-summary');
   kpiSummary.style.display = 'grid';
+  const wmsrState = global.wmsr !== null ? (global.wmsr >= 70 ? 'green' : global.wmsr >= 50 ? 'yellow' : 'red') : 'blue';
+  const tmrrState = global.tmrr !== null ? (global.tmrr >= 100 ? 'green' : global.tmrr >= 80 ? 'yellow' : 'red') : 'blue';
+  const avgState  = global.avgRespSec !== null ? (global.avgRespSec <= 600 ? 'green' : global.avgRespSec <= 900 ? 'yellow' : 'red') : 'blue';
+  const stateIcon = s => s === 'green' ? '✓' : s === 'yellow' ? '!' : s === 'red' ? '✕' : '·';
+
   kpiSummary.innerHTML = `
-    <div class="kpi-card ${global.wmsr !== null ? (global.wmsr >= 70 ? 'green' : global.wmsr >= 50 ? 'yellow' : 'red') : 'blue'} fade-in">
+    <div class="kpi-card ${wmsrState} fade-in">
+      <div class="kpi-state-icon">${stateIcon(wmsrState)}</div>
       <div class="kpi-name"><span class="kpi-name-full">Welcome Message Sent Ratio</span><span class="kpi-name-short">WMSR</span></div>
       <div class="kpi-val ${wmsrColor(global.wmsr)}">${global.wmsr !== null ? global.wmsr.toFixed(0)+'%' : '—'}</div>
       <div class="kpi-meta">Total: ${recs.reduce((s,r)=>s+r.welcomeSent,0).toFixed(0)} enviados / ${recs.reduce((s,r)=>s+r.countCheckin,0).toFixed(0)} check-ins</div>
       <div class="kpi-target">Meta: 70%</div>
     </div>
-    <div class="kpi-card ${global.tmrr !== null ? (global.tmrr >= 100 ? 'green' : global.tmrr >= 80 ? 'yellow' : 'red') : 'blue'} fade-in">
+    <div class="kpi-card ${tmrrState} fade-in">
+      <div class="kpi-state-icon">${stateIcon(tmrrState)}</div>
       <div class="kpi-name"><span class="kpi-name-full">Team Member Response Rate</span><span class="kpi-name-short">TMRR</span></div>
       <div class="kpi-val ${tmrrColor(global.tmrr)}">${global.tmrr !== null ? global.tmrr.toFixed(0)+'%' : '—'}</div>
       <div class="kpi-meta">Respondidos: ${recs.reduce((s,r)=>s+r.msgResp,0).toFixed(0)} / Sin respuesta: ${recs.reduce((s,r)=>s+r.noResp,0).toFixed(0)}</div>
       <div class="kpi-target">Meta: 100%</div>
     </div>
-    <div class="kpi-card ${global.avgRespSec !== null ? (global.avgRespSec <= 600 ? 'green' : global.avgRespSec <= 900 ? 'yellow' : 'red') : 'blue'} fade-in">
+    <div class="kpi-card ${avgState} fade-in">
+      <div class="kpi-state-icon">${stateIcon(avgState)}</div>
       <div class="kpi-name"><span class="kpi-name-full">Average Response Time</span><span class="kpi-name-short">Avg. Resp.</span></div>
       <div class="kpi-val ${avgRespColor(global.avgRespSec)}">${global.avgRespFmt}</div>
       <div class="kpi-meta">Tiempo total: ${(recs.reduce((s,r)=>s+r.totalTime,0)/3600).toFixed(1)}h · Mensajes: ${recs.reduce((s,r)=>s+r.msgResp,0).toFixed(0)}</div>
@@ -2191,19 +2348,155 @@ function renderDashboard() {
   `;
 
   setStatus('ok', `${allRecords.length} reg. · ${formatDate(lastDate)}`);
+  renderRanking(recs);
+}
+
+// ============================================================================
+// RANKING + ALERTS PANEL (Opción 4)
+// ============================================================================
+
+function hotelScore(h) {
+  // Score compuesto 0–100: promedio ponderado de 3 KPIs vs sus metas
+  let parts = [], weights = [];
+  if (h.wmsr !== null)      { parts.push(Math.min(100, h.wmsr / 70 * 100));         weights.push(1); }
+  if (h.tmrr !== null)      { parts.push(Math.min(100, h.tmrr / 100 * 100));        weights.push(1); }
+  if (h.avgRespSec !== null){ parts.push(Math.max(0, 100 - (h.avgRespSec / 600 * 50))); weights.push(1); }
+  if (!parts.length) return null;
+  return parts.reduce((s,v)=>s+v,0) / parts.length;
+}
+
+function renderRanking(recs) {
+  const panel = document.getElementById('ranking-panel');
+  if (!panel) return;
+
+  // Build per-hotel data for the filtered period
+  const hotelList = HOTEL_ORDER.map((code, idx) => {
+    const hotelRecs = recs.filter(r => r.code === code);
+    const kpis = calcKPIs(hotelRecs);
+    const countryRec = allRecords.find(r => r.code === code);
+    const country = countryRec ? countryRec.country : HOTEL_COUNTRY[code] || '—';
+    const wOk = kpis.wmsr !== null && kpis.wmsr >= 70;
+    const tOk = kpis.tmrr !== null && kpis.tmrr >= 100;
+    const aOk = kpis.avgRespSec !== null && kpis.avgRespSec <= 600;
+    const metaScore = [wOk, tOk, aOk].filter(Boolean).length;
+    const score = hotelScore(kpis);
+
+    // Last date this hotel reported data in the full dataset
+    const allHotelDates = allRecords.filter(r => r.code === code).map(r => r.dateObj).filter(Boolean);
+    const lastReportDate = allHotelDates.length ? new Date(Math.max(...allHotelDates)) : null;
+    const today = new Date();
+    const daysSinceReport = lastReportDate
+      ? Math.floor((today - lastReportDate) / 86400000)
+      : null;
+    const noRecentData = hotelRecs.length === 0;
+
+    return { code, country, pos: idx+1, ...kpis, metaScore, score, noRecentData, daysSinceReport, wOk, tOk, aOk };
+  });
+
+  // ── Top performers (score ≥ 80, at least 1 record)
+  const topHotels = hotelList
+    .filter(h => h.score !== null && h.records > 0)
+    .sort((a,b) => b.score - a.score)
+    .slice(0, 5);
+
+  // ── Alerts: critical (0/3 metas with data) + no data in period
+  const alertHotels = hotelList.filter(h => {
+    if (h.noRecentData) return true;
+    if (h.records > 0 && h.metaScore === 0) return true;
+    return false;
+  });
+
+  const posClass = (i) => i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : 'normal';
+
+  const dotColor = (ok) => ok ? 'var(--green)' : 'var(--red)';
+
+  const metaDots = (h) => `
+    <div style="display:flex;gap:3px;align-items:center">
+      <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor(h.wOk)}" title="WMSR"></span>
+      <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor(h.tOk)}" title="TMRR"></span>
+      <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor(h.aOk)}" title="Resp."></span>
+    </div>`;
+
+  const topRows = topHotels.length ? topHotels.map((h, i) => `
+    <div class="rank-row">
+      <div class="rank-pos ${posClass(i)}">${i+1}</div>
+      <div class="rank-info">
+        <div class="rank-name">${h.code}</div>
+        <div class="rank-sub">${h.country} · ${h.metaScore}/3 metas · ${h.records} reg.</div>
+      </div>
+      ${metaDots(h)}
+      <div class="rank-score c-green">${Math.round(h.score)}%</div>
+    </div>
+  `).join('') : `<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--text3)">Sin datos suficientes</div>`;
+
+  const alertRows = alertHotels.length ? alertHotels.map(h => {
+    const isNoData = h.noRecentData;
+    const isCritical = !isNoData && h.metaScore === 0;
+    const rowClass = isNoData ? 'rank-row no-data-row' : 'rank-row alert-row';
+    const daysLabel = h.daysSinceReport !== null
+      ? (h.daysSinceReport === 0 ? 'datos hoy' : `hace ${h.daysSinceReport}d`)
+      : 'nunca reportó';
+    const subText = isNoData
+      ? `${h.country} · Sin datos en período · último: ${daysLabel}`
+      : `${h.country} · 0/3 metas · ${h.records} reg.`;
+    const scoreText = isNoData
+      ? `<span style="font-family:var(--mono);font-size:11px;color:var(--text3)">—</span>`
+      : `<div class="rank-score c-red">${Math.round(h.score)}%</div>`;
+    return `
+      <div class="${rowClass}">
+        <div class="rank-pos alert">${isNoData ? '!' : '✕'}</div>
+        <div class="rank-info">
+          <div class="rank-name" style="color:${isNoData?'var(--text3)':'var(--red)'}">${h.code}</div>
+          <div class="rank-sub">${subText}</div>
+        </div>
+        ${isNoData ? '' : metaDots(h)}
+        ${scoreText}
+      </div>`;
+  }).join('') : `<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--green)">✓ Sin alertas en el período</div>`;
+
+  panel.innerHTML = `
+    <div class="section-header" style="margin-bottom:16px">
+      <div class="section-title">Ranking y Alertas</div>
+      <div class="section-count">Score compuesto (WMSR · TMRR · Resp.) vs metas</div>
+    </div>
+    <div class="ranking-grid fade-in">
+      <div class="rank-card">
+        <div class="rank-card-header">
+          <span style="font-size:15px">🏆</span>
+          <span class="rank-card-title">Top performers</span>
+          <span class="badge badge-ok" style="margin-left:auto">Top 5</span>
+        </div>
+        <div class="rank-card-body">${topRows}</div>
+      </div>
+      <div class="rank-card">
+        <div class="rank-card-header">
+          <span style="font-size:15px">🚨</span>
+          <span class="rank-card-title">Alertas</span>
+          <span class="badge badge-red" style="margin-left:auto">${alertHotels.length} hotel${alertHotels.length !== 1 ? 'es' : ''}</span>
+        </div>
+        <div class="rank-card-body">${alertRows}</div>
+      </div>
+    </div>
+  `;
 }
 
 function getStatusBadge(h) {
-  if (h.records === 0) return `<span class="badge" style="background:rgba(71,85,105,0.2);color:var(--text3);border:1px solid var(--border2)">Sin datos</span>`;
+  if (h.records === 0) return `<span class="badge" style="background:rgba(71,85,105,0.2);color:var(--text3);border:1px solid var(--border2)">— Sin datos</span>`;
 
   const wOk = h.wmsr !== null && h.wmsr >= 70;
   const tOk = h.tmrr !== null && h.tmrr >= 100;
   const aOk = h.avgRespSec !== null && h.avgRespSec <= 600;
-
   const score = [wOk, tOk, aOk].filter(Boolean).length;
-  if (score === 3) return `<span class="badge badge-ok">✓ Cumple</span>`;
-  if (score >= 1) return `<span class="badge badge-warn">⚡ Parcial (${score}/3)</span>`;
-  return `<span class="badge badge-red">✕ Crítico</span>`;
+
+  const dots = [
+    `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${wOk?'var(--green)':'var(--red)'};margin-right:2px"></span>`,
+    `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${tOk?'var(--green)':'var(--red)'};margin-right:2px"></span>`,
+    `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${aOk?'var(--green)':'var(--red)'}"></span>`,
+  ].join('');
+
+  if (score === 3) return `<span class="badge badge-ok" style="display:inline-flex;align-items:center;gap:5px">✓ Cumple ${dots}</span>`;
+  if (score >= 1) return `<span class="badge badge-warn" style="display:inline-flex;align-items:center;gap:5px">${score}/3 metas ${dots}</span>`;
+  return `<span class="badge badge-red" style="display:inline-flex;align-items:center;gap:5px">✕ Crítico ${dots}</span>`;
 }
 
 // ============================================================================
