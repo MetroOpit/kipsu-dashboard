@@ -2088,7 +2088,7 @@ function renderDashboard() {
     </div>
     <div class="kpi-card ${global.tmrr !== null ? (global.tmrr >= 100 ? 'green' : global.tmrr >= 80 ? 'yellow' : 'red') : 'blue'} fade-in">
       <div class="kpi-name"><span class="kpi-name-full">Team Member Response Rate</span><span class="kpi-name-short">TMRR</span></div>
-      <div class="kpi-val ${tmrrColor(global.tmrr)}">${global.tmrr !== null ? global.tmrr.toFixed(1)+'%' : '—'}</div>
+      <div class="kpi-val ${tmrrColor(global.tmrr)}">${global.tmrr !== null ? global.tmrr.toFixed(0)+'%' : '—'}</div>
       <div class="kpi-meta">Respondidos: ${recs.reduce((s,r)=>s+r.msgResp,0).toFixed(0)} / Sin respuesta: ${recs.reduce((s,r)=>s+r.noResp,0).toFixed(0)}</div>
       <div class="kpi-target">Meta: 100%</div>
     </div>
@@ -2152,7 +2152,7 @@ function renderDashboard() {
           </td>
           <td>
             <div class="bar-wrap">
-              <span class="kpi-cell ${tc}">${h.tmrr !== null ? h.tmrr.toFixed(1)+'%' : '—'}</span>
+              <span class="kpi-cell ${tc}">${h.tmrr !== null ? h.tmrr.toFixed(0)+'%' : '—'}</span>
               <div class="bar-bg"><div class="bar-fill ${barColor(tc)}" style="width:${tPct}%"></div></div>
             </div>
           </td>
