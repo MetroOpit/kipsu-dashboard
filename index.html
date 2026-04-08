@@ -64,6 +64,36 @@
     gap: 16px;
   }
 
+  /* Center block: absolute so it doesn't push the left/right items */
+  .header-center {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .header-center-title {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+  }
+
+  .header-center-sub {
+    font-size: 10px;
+    color: var(--text3);
+    font-family: var(--mono);
+    margin-top: 3px;
+    letter-spacing: 0.3px;
+  }
+
+  .header-center-sub .last-update-val {
+    color: var(--accent);
+  }
+
   .logo-badge {
     width: 40px; height: 40px;
     background: linear-gradient(135deg, var(--accent), var(--accent2));
@@ -523,7 +553,7 @@
     z-index: 10;
     margin: 0 40px 24px;
     display: none;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 16px;
   }
 
@@ -996,8 +1026,8 @@
       margin-right: 20px;
     }
     #kpi-summary { grid-template-columns: 1fr 1fr; }
-    .summary-grid { grid-template-columns: repeat(2, 1fr); }
     .inst-steps { grid-template-columns: 1fr 1fr; }
+    /* En tablet ocultar la col Conv de la tabla (es la nueva col 5) */
     .hotels-table thead th:nth-child(5),
     .hotels-table tbody td:nth-child(5) { display: none; }
   }
@@ -1026,14 +1056,16 @@
     .logo-text  { font-size: 14px; }
     .logo-sub   { display: none; }
     .header-right { gap: 6px; flex-shrink: 0; }
+    .header-center-title { font-size: 14px; }
+    .header-center-sub   { font-size: 9px; }
     #status-pill { padding: 4px 8px; }
     #status-pill span { font-size: 10px; }
     #admin-btn-wrap button { font-size: 9px !important; padding: 3px 6px !important; }
 
-    /* ── KPI globales: 3 chips horizontales en una fila */
+    /* ── KPI globales: 4 chips horizontales en una fila */
     #kpi-summary {
-      grid-template-columns: 1fr 1fr 1fr !important;
-      gap: 6px;
+      grid-template-columns: 1fr 1fr 1fr 1fr !important;
+      gap: 5px;
       margin-left: 10px;
       margin-right: 10px;
     }
@@ -1151,7 +1183,7 @@
     .bar-bg { width: 100%; max-width: 48px; height: 3px; }
     .kpi-cell { font-size: 11px; font-weight: 600; }
 
-    /* Col 5 (records): hidden */
+    /* Col 5 (Conv): hidden en móvil para ahorrar espacio */
     .hotels-table td:nth-child(5) { display: none !important; }
 
     /* Col 6 (status badge): small, right-aligned */
@@ -1253,8 +1285,15 @@
   <div class="logo-area">
     <div class="logo-badge">MH</div>
     <div>
-      <div class="logo-text">KIPSU Dashboard</div>
-      <div class="logo-sub">Metro Hotels Colombia · 14 Propiedades</div>
+      <div class="logo-text">Metro Hotels</div>
+      <div class="logo-sub">14 Propiedades</div>
+    </div>
+  </div>
+  <!-- Centered title -->
+  <div class="header-center" id="header-center">
+    <div class="header-center-title">KIPSU Dashboard</div>
+    <div class="header-center-sub" id="header-update-sub" style="display:none">
+      Última actualización: <span class="last-update-val" id="header-last-update">—</span>
     </div>
   </div>
   <div class="header-right">
@@ -1793,7 +1832,7 @@ function parseCSV(text) {
     const cols = parseCSVLine(lines[i], delim);
     if (cols.every(c => !c.trim())) continue; // skip empty rows
 
-    // Map columns by position (A-I)
+    // Map columns by position (A-J)
     const rawDate     = cols[0] || '';
     const country     = (cols[1] || '').trim();
     const innCode     = (cols[2] || '').trim().toUpperCase();
@@ -1803,6 +1842,14 @@ function parseCSV(text) {
     const noResp      = parseFloat(cols[6]) || 0;
     const totalTime   = parseFloat(cols[7]) || 0;
     const welcomeSent = parseFloat(cols[8]) || 0;
+    // Columna J (índice 9): Total Conversations — disponible desde 29/03/2026
+    // Buscar también por nombre de columna en el encabezado
+    let totalConvIdx = 9; // posición por defecto
+    if (headers.length > 0) {
+      const tcIdx = headers.findIndex(h => h.includes('total conversation') || h === 'total conversations');
+      if (tcIdx >= 0) totalConvIdx = tcIdx;
+    }
+    const totalConversations = cols[totalConvIdx] !== undefined && cols[totalConvIdx].trim() !== '' ? parseFloat(cols[totalConvIdx]) || 0 : null;
 
     if (!innCode) continue;
 
@@ -1836,7 +1883,8 @@ function parseCSV(text) {
       msgResp,
       noResp,
       totalTime,
-      welcomeSent
+      welcomeSent,
+      totalConversations
     });
   }
 
@@ -2527,7 +2575,7 @@ function getFilteredRecords() {
 }
 
 function calcKPIs(recs) {
-  if (!recs.length) return { wmsr: null, tmrr: null, avgRespSec: null, avgRespFmt: '—' };
+  if (!recs.length) return { wmsr: null, tmrr: null, avgRespSec: null, avgRespFmt: '—', totalConv: null };
 
   const totalWelcome = recs.reduce((s, r) => s + r.welcomeSent, 0);
   const totalCheckin = recs.reduce((s, r) => s + r.countCheckin, 0);
@@ -2539,6 +2587,10 @@ function calcKPIs(recs) {
   const tmrr = (totalMsgResp + totalNoResp) > 0 ? (totalMsgResp / (totalMsgResp + totalNoResp) * 100) : null;
   const avgRespSec = totalMsgResp > 0 ? totalTime / totalMsgResp : null;
 
+  // Total Conversations: sumar solo los registros que tienen valor (no null)
+  const convRecs = recs.filter(r => r.totalConversations !== null && r.totalConversations !== undefined);
+  const totalConv = convRecs.length > 0 ? convRecs.reduce((s, r) => s + (r.totalConversations || 0), 0) : null;
+
   let avgRespFmt = '—';
   if (avgRespSec !== null) {
     const h = Math.floor(avgRespSec / 3600);
@@ -2547,7 +2599,7 @@ function calcKPIs(recs) {
     avgRespFmt = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   }
 
-  return { wmsr, tmrr, avgRespSec, avgRespFmt };
+  return { wmsr, tmrr, avgRespSec, avgRespFmt, totalConv };
 }
 
 function wmsrColor(v) {
@@ -2588,6 +2640,14 @@ function renderDashboard() {
   document.getElementById('period-stats-text').innerHTML =
     `<span>${recs.length} registros en período</span><span>${[...new Set(recs.map(r=>r.code))].length} hoteles con datos</span>`;
 
+  // ── Actualizar subtítulo del header con la última fecha de los datos
+  const lastUpdateEl = document.getElementById('header-last-update');
+  const headerSubEl  = document.getElementById('header-update-sub');
+  if (lastUpdateEl && headerSubEl) {
+    lastUpdateEl.textContent = formatDate(lastDate);
+    headerSubEl.style.display = 'block';
+  }
+
   // ── Global KPIs
   const global = calcKPIs(recs);
   const kpiSummary = document.getElementById('kpi-summary');
@@ -2595,6 +2655,13 @@ function renderDashboard() {
   const wmsrState = global.wmsr !== null ? (global.wmsr >= 70 ? 'green' : global.wmsr >= 50 ? 'yellow' : 'red') : 'blue';
   const tmrrState = global.tmrr !== null ? (global.tmrr >= 100 ? 'green' : global.tmrr >= 80 ? 'yellow' : 'red') : 'blue';
   const avgState  = global.avgRespSec !== null ? (global.avgRespSec <= 600 ? 'green' : global.avgRespSec <= 900 ? 'yellow' : 'red') : 'blue';
+  // Total Conversations: meta mínimo 30 al mes
+  // Para comparar proportionalmente según el período seleccionado
+  const periodDaysForConv = Math.round((endDate2 - startDate) / 86400000) + 1;
+  const convMetaProrated = Math.round(30 * periodDaysForConv / 30); // prorrateada al período
+  const convState = global.totalConv !== null
+    ? (global.totalConv >= convMetaProrated ? 'green' : global.totalConv >= convMetaProrated * 0.7 ? 'yellow' : 'red')
+    : 'blue';
 
   kpiSummary.innerHTML = `
     <div class="kpi-card ${wmsrState} fade-in">
@@ -2615,6 +2682,12 @@ function renderDashboard() {
       <div class="kpi-meta">Tiempo total: ${(recs.reduce((s,r)=>s+r.totalTime,0)/3600).toFixed(1)}h · Mensajes: ${recs.reduce((s,r)=>s+r.msgResp,0).toFixed(0)}</div>
       <div class="kpi-target">Meta: &lt;10 min</div>
     </div>
+    <div class="kpi-card ${convState} fade-in">
+      <div class="kpi-name"><span class="kpi-name-full">Total Conversations</span><span class="kpi-name-short">Conv.</span></div>
+      <div class="kpi-val" style="color:${global.totalConv === null ? 'var(--text3)' : global.totalConv >= convMetaProrated ? 'var(--green)' : global.totalConv >= convMetaProrated*0.7 ? 'var(--yellow)' : 'var(--red)'}">${global.totalConv !== null ? global.totalConv : '—'}</div>
+      <div class="kpi-meta">${global.totalConv !== null ? 'Meta período: ' + convMetaProrated + ' conv.' : 'Sin datos aún (desde 29/03/2026)'}</div>
+      <div class="kpi-target">Meta: ≥30/mes</div>
+    </div>
   `;
 
   // ── Hotel table
@@ -2630,6 +2703,9 @@ function renderDashboard() {
     hotelData[code] = { ...kpis, country: countryRec ? countryRec.country : HOTEL_COUNTRY[code] || '—', records: hotelRecs.length };
   });
 
+  // Filtrar por país si aplica (para no mostrar hoteles de otros países en la tabla)
+  const cFilterTable = document.getElementById('country-filter').value;
+
   // Group by country
   const countries = ['Colombia', 'Peru', 'Chile'];
   const countryMap = { Colombia: [], Peru: [], Chile: [] };
@@ -2640,18 +2716,28 @@ function renderDashboard() {
 
   let tableRows = '';
   countries.forEach(country => {
+    // Si hay filtro de país activo, omitir países que no coincidan
+    if (cFilterTable && country !== cFilterTable) return;
     const hotels = countryMap[country] || [];
     if (!hotels.length) return;
     tableRows += `
-      <tr class="country-row"><td colspan="6">${country} — ${hotels.length} propiedades</td></tr>
+      <tr class="country-row"><td colspan="5">${country} — ${hotels.length} propiedades</td></tr>
     `;
     hotels.forEach(h => {
       const wc = wmsrColor(h.wmsr);
       const tc = tmrrColor(h.tmrr);
       const ac = avgRespColor(h.avgRespSec);
+      const convMetaDay = 30 / 30; // ~1 conv/día por hotel
+      const convOk = h.totalConv !== null && h.totalConv >= 1;
 
       const wPct = h.wmsr !== null ? Math.min(100, h.wmsr) : 0;
       const tPct = h.tmrr !== null ? Math.min(100, h.tmrr) : 0;
+
+      // Color para Total Conversations por hotel (dato acumulado del período)
+      const convColor = h.totalConv === null ? 'c-dim'
+        : h.totalConv >= 5 ? 'c-green'
+        : h.totalConv >= 2 ? 'c-yellow'
+        : 'c-red';
 
       tableRows += `
         <tr>
@@ -2675,7 +2761,9 @@ function renderDashboard() {
           <td>
             <span class="kpi-cell ${ac}">${h.avgRespFmt}</span>
           </td>
-          <td style="font-family:var(--mono);font-size:11px;color:var(--text3)">${h.records} reg.</td>
+          <td>
+            <span class="kpi-cell ${convColor}">${h.totalConv !== null ? h.totalConv : '—'}</span>
+          </td>
           <td>${getStatusBadge(h)}</td>
         </tr>
       `;
@@ -2685,7 +2773,7 @@ function renderDashboard() {
   hotelGrid.innerHTML = `
     <div class="section-header">
       <div class="section-title">KPIs por Propiedad</div>
-      <div class="section-count">${HOTEL_ORDER.length} hoteles · Período: ${currentPeriod}</div>
+      <div class="section-count">${cFilterTable ? countryMap[cFilterTable]?.length || 0 : HOTEL_ORDER.length} hoteles · Período: ${currentPeriod}</div>
     </div>
     <div class="hotels-table">
       <table>
@@ -2695,7 +2783,7 @@ function renderDashboard() {
             <th>WMSR <span style="color:var(--text3);font-weight:400">(meta 70%)</span></th>
             <th>TMRR <span style="color:var(--text3);font-weight:400">(meta 100%)</span></th>
             <th>Avg. Resp. <span style="color:var(--text3);font-weight:400">(meta &lt;10min)</span></th>
-            <th>Registros</th>
+            <th>Conv. <span style="color:var(--text3);font-weight:400">(meta ≥30/mes)</span></th>
             <th>Estado</th>
           </tr>
         </thead>
@@ -2718,22 +2806,27 @@ function renderRanking(recs) {
   const panel = document.getElementById('ranking-panel');
   if (!panel) return;
 
-  // Build per-hotel WMSR data for the filtered period
-  const hotelList = HOTEL_ORDER.map((code, idx) => {
-    const hotelRecs = recs.filter(r => r.code === code);
-    const kpis = calcKPIs(hotelRecs);
-    const countryRec = allRecords.find(r => r.code === code);
-    const country = countryRec ? countryRec.country : HOTEL_COUNTRY[code] || '—';
+  // Filtro de país activo
+  const cFilter = document.getElementById('country-filter').value;
 
-    // Last date this hotel reported in the full dataset
-    const allHotelDates = allRecords.filter(r => r.code === code).map(r => r.dateObj).filter(Boolean);
-    const lastReportDate = allHotelDates.length ? new Date(Math.max(...allHotelDates)) : null;
-    const today = new Date();
-    const daysSinceReport = lastReportDate ? Math.floor((today - lastReportDate) / 86400000) : null;
-    const noRecentData = hotelRecs.length === 0;
+  // Build per-hotel WMSR data for the filtered period, respetando filtro de país
+  const hotelList = HOTEL_ORDER
+    .filter(code => !cFilter || (HOTEL_COUNTRY[code] || '') === cFilter)
+    .map((code, idx) => {
+      const hotelRecs = recs.filter(r => r.code === code);
+      const kpis = calcKPIs(hotelRecs);
+      const countryRec = allRecords.find(r => r.code === code);
+      const country = countryRec ? countryRec.country : HOTEL_COUNTRY[code] || '—';
 
-    return { code, country, pos: idx+1, wmsr: kpis.wmsr, records: hotelRecs.length, noRecentData, daysSinceReport };
-  });
+      // Last date this hotel reported in the full dataset
+      const allHotelDates = allRecords.filter(r => r.code === code).map(r => r.dateObj).filter(Boolean);
+      const lastReportDate = allHotelDates.length ? new Date(Math.max(...allHotelDates)) : null;
+      const today = new Date();
+      const daysSinceReport = lastReportDate ? Math.floor((today - lastReportDate) / 86400000) : null;
+      const noRecentData = hotelRecs.length === 0;
+
+      return { code, country, pos: idx+1, wmsr: kpis.wmsr, records: hotelRecs.length, noRecentData, daysSinceReport };
+    });
 
   // ── Top 5 por WMSR (con datos, orden descendente)
   const topHotels = hotelList
@@ -2741,7 +2834,7 @@ function renderRanking(recs) {
     .sort((a, b) => b.wmsr - a.wmsr)
     .slice(0, 5);
 
-  // ── Alertas: sin datos en período ó WMSR < 70%
+  // ── Alertas: sin datos en período ó WMSR < 70% — máximo top 5
   const alertHotels = hotelList.filter(h => {
     if (h.noRecentData) return true;
     if (h.records > 0 && h.wmsr !== null && h.wmsr < 70) return true;
@@ -2751,7 +2844,7 @@ function renderRanking(recs) {
     if (a.noRecentData && !b.noRecentData) return -1;
     if (!a.noRecentData && b.noRecentData) return 1;
     return (a.wmsr ?? 0) - (b.wmsr ?? 0);
-  });
+  }).slice(0, 5); // ← máximo 5 alertas
 
   const posClass = i => i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : 'normal';
 
