@@ -610,6 +610,7 @@
   .kpi-card.blue::before   { background: linear-gradient(90deg, var(--accent), transparent); }
 
   /* Ranking panel */
+  #ranking-panel {
     position: relative;
     z-index: 10;
     margin: 0 40px 40px;
@@ -707,12 +708,20 @@
     border-left: 3px solid var(--text3);
   }
 
+  #trend-panel {
+    position: relative;
+    z-index: 10;
+    margin: 0 40px 40px;
+  }
+
   @media (max-width: 768px) {
     #ranking-panel { margin-left: 10px; margin-right: 10px; }
+    #trend-panel   { margin-left: 10px; margin-right: 10px; margin-bottom: 24px; }
     .ranking-grid  { grid-template-columns: 1fr; }
   }
   @media (max-width: 390px) {
     #ranking-panel { margin-left: 6px; margin-right: 6px; }
+    #trend-panel   { margin-left: 6px; margin-right: 6px; }
   }
 
   .kpi-name {
@@ -1036,9 +1045,9 @@
     }
     #kpi-summary { grid-template-columns: 1fr 1fr; }
     .inst-steps { grid-template-columns: 1fr 1fr; }
-    /* En tablet ocultar la col Conv de la tabla (es la nueva col 5) */
-    .hotels-table thead th:nth-child(5),
-    .hotels-table tbody td:nth-child(5) { display: none; }
+    /* En tablet: ocultar col Estado (col 6) para ganar espacio */
+    .hotels-table thead th:nth-child(6),
+    .hotels-table tbody td:nth-child(6) { display: none; }
   }
 
   /* ══════════════════════════════════════════════
@@ -1122,6 +1131,8 @@
     .period-tab  { flex: 1; font-size: 10px; padding: 5px 4px; }
     #custom-range-row { width: 100%; gap: 4px; }
     #custom-range-row input[type=date] { width: 85px; font-size: 10px; }
+    #month-select-row { width: 100%; }
+    #month-select-row select { width: 100%; font-size: 11px; }
     .filter-sep  { display: none; }
     .filter-label { font-size: 10px; white-space: nowrap; }
     select { font-size: 11px; padding: 5px 6px; flex: 1; min-width: 0; }
@@ -1133,9 +1144,8 @@
        Una tarjeta por hotel, todo visible
     ══════════════════════════════ */
     .hotels-table { border-radius: 10px; overflow: hidden; }
-    .hotels-table table,
-    .hotels-table tbody,
-    .hotels-table thead { display: block; width: 100%; }
+    .hotels-table table { display: block; width: 100%; }
+    .hotels-table tbody { display: block; width: 100%; }
     .hotels-table thead { display: none; }
 
     /* Country separator — single line */
@@ -1145,6 +1155,8 @@
       padding: 6px 12px !important;
       background: var(--surface2);
       align-items: center;
+      width: 100%;
+      box-sizing: border-box;
     }
     .hotels-table tbody tr.country-row td {
       display: inline !important;
@@ -1156,47 +1168,60 @@
       white-space: nowrap;
     }
 
-    /* Hotel row → compact scorecard */
+    /* Hotel row → fila flex con 5 celdas visibles */
     .hotels-table tbody tr:not(.country-row) {
-      display: flex;
-      flex-direction: row;
+      display: flex !important;
+      flex-direction: row !important;
       align-items: center;
-      padding: 10px 12px;
+      padding: 8px 10px;
       gap: 0;
       border-bottom: 1px solid var(--border);
       flex-wrap: nowrap;
+      width: 100%;
+      box-sizing: border-box;
     }
 
-    /* Col 1: Hotel name — ancho reducido para dar espacio a 4 KPIs */
+    /* Cada td como flex item */
+    .hotels-table tbody tr:not(.country-row) td {
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+      padding: 0 2px !important;
+      box-sizing: border-box;
+    }
+
+    /* Col 1: nombre hotel — ancho fijo pequeño */
     .hotels-table tbody tr:not(.country-row) td:nth-child(1) {
-      flex: 0 0 52px;
-      padding: 0 !important;
-      min-width: 0;
+      flex: 0 0 48px !important;
+      justify-content: flex-start !important;
+      flex-direction: column;
+      align-items: flex-start !important;
     }
     .hotel-pos     { display: none; }
-    .hotel-code    { font-size: 10px; font-weight: 600; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .hotel-country { font-size: 8px; color: var(--text3); margin-top: 1px; }
+    .hotel-code    { font-size: 10px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: clip; max-width: 48px; }
+    .hotel-country { font-size: 8px; color: var(--text3); margin-top: 1px; display: block; }
 
-    /* Col 2,3,4,5: los 4 KPIs — igual flex, centrados */
-    .hotels-table td:nth-child(2),
-    .hotels-table td:nth-child(3),
-    .hotels-table td:nth-child(4),
-    .hotels-table td:nth-child(5) {
-      flex: 1;
-      padding: 0 2px !important;
-      text-align: center !important;
+    /* Col 2,3,4,5: los 4 KPIs */
+    .hotels-table tbody tr:not(.country-row) td:nth-child(2),
+    .hotels-table tbody tr:not(.country-row) td:nth-child(3),
+    .hotels-table tbody tr:not(.country-row) td:nth-child(4),
+    .hotels-table tbody tr:not(.country-row) td:nth-child(5) {
+      flex: 1 1 0 !important;
+      flex-direction: column;
+      gap: 2px;
     }
     .bar-wrap {
       flex-direction: column;
       align-items: center;
       gap: 2px;
       justify-content: center;
+      width: 100%;
     }
-    .bar-bg { width: 100%; max-width: 36px; height: 3px; }
-    .kpi-cell { font-size: 10px; font-weight: 600; }
+    .bar-bg { width: 90%; max-width: 40px; height: 3px; }
+    .kpi-cell { font-size: 10px; font-weight: 700; }
 
-    /* Col 6 (Estado): oculto en móvil — los 4 puntos ya son el resumen */
-    .hotels-table td:nth-child(6) { display: none !important; }
+    /* Col 6 (Estado): oculto en móvil vertical */
+    .hotels-table tbody tr:not(.country-row) td:nth-child(6) { display: none !important; }
 
     .badge { font-size: 8px !important; padding: 2px 5px !important; }
 
@@ -1365,7 +1390,14 @@
   <div class="period-tabs">
     <button class="period-tab active" id="tab-7d"  onclick="setPeriod('7d',  this)">7 días</button>
     <button class="period-tab"        id="tab-30d" onclick="setPeriod('30d', this)">30 días</button>
+    <button class="period-tab"        id="tab-month" onclick="toggleMonthSelect(this)">Mes</button>
     <button class="period-tab"        id="tab-custom" onclick="toggleCustomRange(this)">Personalizado</button>
+  </div>
+  <!-- Selector de mes — aparece al elegir "Mes" -->
+  <div id="month-select-row" style="display:none;align-items:center;gap:6px;">
+    <select id="month-select" onchange="applyMonthPeriod()" style="font-size:12px;">
+      <!-- Poblado dinámicamente con los meses disponibles en los datos -->
+    </select>
   </div>
   <div id="custom-range-row" class="date-range-row" style="display:none">
     <input type="date" id="date-from" onchange="applyCustomRange()">
@@ -1375,7 +1407,7 @@
   </div>
   <div class="filter-sep"></div>
   <span class="filter-label">País:</span>
-  <select id="country-filter" onchange="renderDashboard()">
+  <select id="country-filter" onchange="onCountryChange()">
     <option value="">Todos</option>
     <option value="Colombia">Colombia</option>
     <option value="Peru">Perú</option>
@@ -1385,7 +1417,7 @@
   <span class="filter-label">Hotel:</span>
   <select id="hotel-filter" onchange="renderDashboard()">
     <option value="">Todos</option>
-    <!-- Populated in order by populateHotelFilter() -->
+    <!-- Poblado por populateHotelFilter() -->
   </select>
   <div style="margin-left:auto">
     <button class="btn btn-secondary" onclick="autoLoad()" style="font-size:12px; padding:8px 14px">↻ Actualizar datos</button>
@@ -1399,7 +1431,7 @@
 </div>
 
 <!-- KPI SUMMARY -->
-<div id="kpi-summary" style="display:none; display:none">
+<div id="kpi-summary" style="display:none">
   <!-- Populated dynamically -->
 </div>
 
@@ -1414,7 +1446,7 @@
 </div>
 
 <!-- TREND CHARTS PANEL -->
-<div id="trend-panel" style="display:none; position:relative;z-index:10;margin:0 40px 40px">
+<div id="trend-panel" style="display:none">
   <!-- Populated dynamically -->
 </div>
 
@@ -1449,7 +1481,7 @@ const SCRIPT_URL  = 'https://script.google.com/macros/s/AKfycbyGH_lrbMLwWVbTMXt-
 const SHEETS_CSV  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqhyQaUZp2LQ5CnBl5A1YKTSXzUS__zgnFEj882GnEHvI2Trj_I-Oa9WVKfUVy36l4kVwhb_0TSkfP/pub?gid=702796208&single=true&output=csv';
 
 let allRecords = [];
-let currentPeriod = '7d';   // '7d' | '30d' | 'custom'
+let currentPeriod = '7d';   // '7d' | '30d' | 'month' | 'custom'
 let customDateFrom = null;  // Date object when period === 'custom'
 let customDateTo   = null;  // Date object when period === 'custom'
 let dataConfirmed = false;
@@ -1941,26 +1973,92 @@ function parseCSV(text) {
   populateHotelFilter(records);
 }
 
-function populateHotelFilter(records) {
+function populateHotelFilter(records, countryFilter) {
   const presentCodes = new Set(records.map(r => r.code));
   const sel = document.getElementById('hotel-filter');
-  sel.innerHTML = '<option value="">Todos (14)</option>';
-  // First: codes in defined order
-  HOTEL_ORDER.forEach(code => {
+  const cFilter = countryFilter !== undefined ? countryFilter : (document.getElementById('country-filter')?.value || '');
+
+  // Filtrar códigos visibles según país
+  const visibleCodes = HOTEL_ORDER.filter(code => {
+    if (!cFilter) return true;
+    return (HOTEL_COUNTRY[code] || '') === cFilter;
+  });
+
+  const totalVisible = visibleCodes.length;
+  sel.innerHTML = `<option value="">Todos (${totalVisible})</option>`;
+
+  visibleCodes.forEach(code => {
     const opt = document.createElement('option');
     opt.value = code;
     opt.textContent = code + (presentCodes.has(code) ? '' : ' (sin datos)');
     if (!presentCodes.has(code)) opt.style.color = '#475569';
     sel.appendChild(opt);
   });
-  // Then: any codes in data not in HOTEL_ORDER
-  presentCodes.forEach(code => {
-    if (!HOTEL_ORDER.includes(code)) {
-      const opt = document.createElement('option');
-      opt.value = code; opt.textContent = code + ' *';
-      sel.appendChild(opt);
+
+  // Códigos en datos no listados en HOTEL_ORDER (solo si no hay filtro de país)
+  if (!cFilter) {
+    presentCodes.forEach(code => {
+      if (!HOTEL_ORDER.includes(code)) {
+        const opt = document.createElement('option');
+        opt.value = code; opt.textContent = code + ' *';
+        sel.appendChild(opt);
+      }
+    });
+  }
+}
+
+// ── Cuando cambia el país: repoblar el filtro de hotel y re-renderizar
+function onCountryChange() {
+  const cFilter = document.getElementById('country-filter').value;
+  // Resetear selección de hotel al cambiar país
+  document.getElementById('hotel-filter').value = '';
+  populateHotelFilter(allRecords, cFilter);
+  renderDashboard();
+}
+
+// ── Filtro por mes completo
+function populateMonthSelect() {
+  const sel = document.getElementById('month-select');
+  if (!sel || !allRecords.length) return;
+
+  // Obtener todos los meses únicos presentes en los datos
+  const monthSet = new Set();
+  allRecords.forEach(r => {
+    if (r.dateObj) {
+      const y = r.dateObj.getFullYear();
+      const m = r.dateObj.getMonth(); // 0-11
+      monthSet.add(y + '-' + String(m).padStart(2, '0'));
     }
   });
+
+  const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                    'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  const sortedMonths = [...monthSet].sort().reverse(); // más reciente primero
+  sel.innerHTML = sortedMonths.map(ym => {
+    const [y, m] = ym.split('-');
+    return `<option value="${ym}">${MESES_ES[parseInt(m)]} ${y}</option>`;
+  }).join('');
+}
+
+function toggleMonthSelect(btn) {
+  currentPeriod = 'month';
+  document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('custom-range-row').style.display = 'none';
+  const row = document.getElementById('month-select-row');
+  row.style.display = 'flex';
+  populateMonthSelect();
+  applyMonthPeriod();
+}
+
+function applyMonthPeriod() {
+  const sel = document.getElementById('month-select');
+  if (!sel || !sel.value) return;
+  const [y, m] = sel.value.split('-').map(Number);
+  customDateFrom = new Date(y, m, 1, 0, 0, 0);          // primer día del mes
+  customDateTo   = new Date(y, m + 1, 0, 23, 59, 59);   // último día del mes
+  renderDashboard();
 }
 
 function parseCSVLine(line, delim) {
@@ -2505,6 +2603,8 @@ function showMainDashboard() {
   document.getElementById('hotel-grid').style.display = 'block';
   document.getElementById('ranking-panel').style.display = 'block';
   document.getElementById('trend-panel').style.display = 'block';
+  // Pre-poblar el selector de meses con los datos disponibles
+  populateMonthSelect();
   renderAdminBtn();
   renderDashboard();
 }
@@ -2534,6 +2634,7 @@ function setPeriod(p, btn) {
   document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
   if (btn) btn.classList.add('active');
   document.getElementById('custom-range-row').style.display = 'none';
+  document.getElementById('month-select-row').style.display = 'none';
   renderDashboard();
 }
 
@@ -2541,6 +2642,7 @@ function toggleCustomRange(btn) {
   currentPeriod = 'custom';
   document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
+  document.getElementById('month-select-row').style.display = 'none';
   const row = document.getElementById('custom-range-row');
   row.style.display = 'flex';
   // Pre-fill with last available range if inputs are empty
@@ -2588,7 +2690,7 @@ function getFilteredRecords() {
   const lastDate  = new Date(Math.max(...allDates));
   let startDate, endDate;
 
-  if (currentPeriod === 'custom' && customDateFrom && customDateTo) {
+  if ((currentPeriod === 'custom' || currentPeriod === 'month') && customDateFrom && customDateTo) {
     startDate = customDateFrom;
     endDate   = customDateTo;
   } else {
@@ -2669,8 +2771,14 @@ function renderDashboard() {
   const { recs, startDate, lastDate } = result;
 
   // ── Period info bar
-  const endDate2 = (currentPeriod === 'custom' && customDateTo) ? customDateTo : lastDate;
-  const periodLabel = currentPeriod === '7d' ? '7 días' : currentPeriod === '30d' ? '30 días' : 'Personalizado';
+  const endDate2 = ((currentPeriod === 'custom' || currentPeriod === 'month') && customDateTo) ? customDateTo : lastDate;
+  const periodLabel = currentPeriod === '7d' ? '7 días'
+    : currentPeriod === '30d' ? '30 días'
+    : currentPeriod === 'month' ? (() => {
+        const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        return customDateFrom ? MESES_ES[customDateFrom.getMonth()] + ' ' + customDateFrom.getFullYear() : 'Mes';
+      })()
+    : 'Personalizado';
   document.getElementById('period-range-text').textContent =
     formatDate(startDate) + ' → ' + formatDate(endDate2) + ' (' + periodLabel + ')';
   document.getElementById('period-stats-text').innerHTML =
@@ -2816,7 +2924,7 @@ function renderDashboard() {
   hotelGrid.innerHTML = `
     <div class="section-header">
       <div class="section-title">KPIs por Propiedad</div>
-      <div class="section-count">${cFilterTable ? countryMap[cFilterTable]?.length || 0 : HOTEL_ORDER.length} hoteles · Período: ${currentPeriod}</div>
+      <div class="section-count">${cFilterTable ? countryMap[cFilterTable]?.length || 0 : HOTEL_ORDER.length} hoteles · ${periodLabel}</div>
     </div>
     <div class="hotels-table">
       <table>
@@ -2871,23 +2979,22 @@ function renderRanking(recs) {
       return { code, country, pos: idx+1, wmsr: kpis.wmsr, records: hotelRecs.length, noRecentData, daysSinceReport };
     });
 
-  // ── Top 5 por WMSR (con datos, orden descendente)
+  // ── Top 5 por WMSR: solo hoteles con WMSR ≥ 50%, orden descendente
   const topHotels = hotelList
-    .filter(h => h.wmsr !== null && h.records > 0)
+    .filter(h => h.wmsr !== null && h.records > 0 && h.wmsr >= 50)
     .sort((a, b) => b.wmsr - a.wmsr)
     .slice(0, 5);
 
-  // ── Alertas: sin datos en período ó WMSR < 70% — máximo top 5
+  // ── Alertas: sin datos en período ó WMSR < 50% — máximo top 5
   const alertHotels = hotelList.filter(h => {
     if (h.noRecentData) return true;
-    if (h.records > 0 && h.wmsr !== null && h.wmsr < 70) return true;
+    if (h.records > 0 && h.wmsr !== null && h.wmsr < 50) return true;
     return false;
   }).sort((a, b) => {
-    // Sin datos primero, luego por WMSR ascendente
     if (a.noRecentData && !b.noRecentData) return -1;
     if (!a.noRecentData && b.noRecentData) return 1;
     return (a.wmsr ?? 0) - (b.wmsr ?? 0);
-  }).slice(0, 5); // ← máximo 5 alertas
+  }).slice(0, 5);
 
   const posClass = i => i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : 'normal';
 
@@ -2909,7 +3016,7 @@ function renderRanking(recs) {
       ${wmsrBar(h.wmsr)}
       <div class="rank-score" style="color:${h.wmsr>=70?'var(--green)':h.wmsr>=50?'var(--yellow)':'var(--red)'};min-width:38px;text-align:right">${Math.round(h.wmsr)}%</div>
     </div>
-  `).join('') : `<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--text3)">Sin datos suficientes</div>`;
+  `).join('') : `<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--text3)">Sin hoteles con WMSR ≥ 50% en el período</div>`;
 
   const alertRows = alertHotels.length ? alertHotels.map(h => {
     const isNoData = h.noRecentData;
@@ -2946,7 +3053,7 @@ function renderRanking(recs) {
         <div class="rank-card-header">
           <span style="font-size:15px">🏆</span>
           <span class="rank-card-title">Top 5 — Mayor WMSR</span>
-          <span class="badge badge-ok" style="margin-left:auto">≥ 70%</span>
+          <span class="badge badge-ok" style="margin-left:auto">≥ 50%</span>
         </div>
         <div class="rank-card-body">${topRows}</div>
       </div>
@@ -2954,7 +3061,7 @@ function renderRanking(recs) {
         <div class="rank-card-header">
           <span style="font-size:15px">🚨</span>
           <span class="rank-card-title">Alertas — WMSR bajo meta</span>
-          <span class="badge badge-red" style="margin-left:auto">${alertHotels.length} hotel${alertHotels.length !== 1 ? 'es' : ''}</span>
+          <span class="badge badge-red" style="margin-left:auto">${alertHotels.length} hotel${alertHotels.length !== 1 ? 'es' : ''} &lt;50%</span>
         </div>
         <div class="rank-card-body">${alertRows}</div>
       </div>
