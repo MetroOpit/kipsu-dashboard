@@ -1220,8 +1220,29 @@
     .bar-bg { width: 90%; max-width: 40px; height: 3px; }
     .kpi-cell { font-size: 10px; font-weight: 700; }
 
-    /* Col 6 (Estado): oculto en móvil vertical */
-    .hotels-table tbody tr:not(.country-row) td:nth-child(6) { display: none !important; }
+    /* Col 6 (Estado): visible en móvil — solo los 4 puntitos, sin texto */
+    .hotels-table tbody tr:not(.country-row) td:nth-child(6) {
+      display: flex !important;
+      flex: 0 0 auto !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 0 0 0 4px !important;
+    }
+    /* Ocultar el texto del badge, mostrar solo los dots */
+    .hotels-table tbody tr:not(.country-row) td:nth-child(6) .badge {
+      background: transparent !important;
+      border: none !important;
+      padding: 0 !important;
+      font-size: 0 !important;        /* oculta texto */
+      display: inline-flex !important;
+      gap: 3px !important;
+      align-items: center !important;
+    }
+    /* Los spans de los dots sí se muestran (tienen tamaño fijo) */
+    .hotels-table tbody tr:not(.country-row) td:nth-child(6) .badge span[style] {
+      font-size: 0 !important;        /* oculta cualquier carácter (✓ ✕) */
+    }
 
     .badge { font-size: 8px !important; padding: 2px 5px !important; }
 
