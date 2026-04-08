@@ -2168,87 +2168,259 @@ function renderTrendCharts(startDate, endDate2, hotelFilter) {
   if (!panel) return;
 
   const { prevStart, prevEnd } = getTrendPeriods(startDate, endDate2);
-
-  const curPts  = calcPeriodKPIsByDay(startDate, endDate2, hotelFilter);
-  const prevPts = calcPeriodKPIsByDay(prevStart, prevEnd, hotelFilter);
-
-  const curKPIs  = calcKPIs(allRecords.filter(r => r.dateObj >= startDate && r.dateObj <= endDate2 && (!hotelFilter || r.code === hotelFilter)));
-  const prevKPIs = calcKPIs(allRecords.filter(r => r.dateObj >= prevStart && r.dateObj <= prevEnd  && (!hotelFilter || r.code === hotelFilter)));
-
-  const deltaStr = (cur, prev, invert) => {
-    if (cur === null || prev === null) return '';
-    const d = cur - prev;
-    const isGood = invert ? d < 0 : d > 0;
-    const arrow = d > 0 ? '↑' : d < 0 ? '↓' : '→';
-    const col = Math.abs(d) < 0.5 ? 'var(--text3)' : isGood ? 'var(--green)' : 'var(--red)';
-    return `<span style="font-size:11px;font-family:var(--mono);color:${col};margin-left:8px">${arrow} ${Math.abs(d) < 0.5 ? 'sin cambio' : (invert ? (d>0?'+':'')+d.toFixed(0)+'s' : (d>0?'+':'')+Math.round(d)+'%')}</span>`;
-  };
-
-  const fmtSec = s => { if (!s) return '—'; const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=Math.floor(s%60); return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`; };
-
   const periodDays = Math.round((endDate2 - startDate) / 86400000) + 1;
   const prevLabel  = `${formatDate(prevStart)} → ${formatDate(prevEnd)}`;
   const curLabel   = `${formatDate(startDate)} → ${formatDate(endDate2)}`;
+  const fmtSec = s => { if (!s && s !== 0) return '—'; const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=Math.floor(s%60); return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`; };
 
-  const chartCard = (title, kpiKey, metaLine, invertDir, curVal, prevVal, fmtFn) => {
-    const delta = deltaStr(curVal, prevVal, invertDir);
-    const prevFmt = prevVal !== null ? fmtFn(prevVal) : '—';
-    const curFmt  = curVal  !== null ? fmtFn(curVal)  : '—';
-    const colCur  = kpiKey === 'wmsr' ? (curVal >= 70 ? 'var(--green)' : curVal >= 50 ? 'var(--yellow)' : 'var(--red)')
-                  : kpiKey === 'tmrr' ? (curVal >= 100 ? 'var(--green)' : curVal >= 80 ? 'var(--yellow)' : 'var(--red)')
-                  : (curVal <= 600 ? 'var(--green)' : curVal <= 900 ? 'var(--yellow)' : 'var(--red)');
-    const metaLabel = kpiKey === 'wmsr' ? 'Meta 70%' : kpiKey === 'tmrr' ? 'Meta 100%' : 'Meta <10min';
+  // ── Apply country filter too
+  const cFilter = document.getElementById('country-filter').value;
 
-    return `
+  if (hotelFilter) {
+    // ── MODO HOTEL: línea día a día actual vs anterior (igual que antes)
+    const curPts  = calcPeriodKPIsByDay(startDate, endDate2, hotelFilter);
+    const prevPts = calcPeriodKPIsByDay(prevStart, prevEnd, hotelFilter);
+    const curKPIs  = calcKPIs(allRecords.filter(r => r.dateObj >= startDate && r.dateObj <= endDate2 && r.code === hotelFilter));
+    const prevKPIs = calcKPIs(allRecords.filter(r => r.dateObj >= prevStart && r.dateObj <= prevEnd  && r.code === hotelFilter));
+
+    const deltaStr = (cur, prev, invert) => {
+      if (cur === null || prev === null) return '';
+      const d = cur - prev;
+      const isGood = invert ? d < 0 : d > 0;
+      const arrow = d > 0 ? '↑' : d < 0 ? '↓' : '→';
+      const col = Math.abs(d) < 0.5 ? 'var(--text3)' : isGood ? 'var(--green)' : 'var(--red)';
+      const label = Math.abs(d) < 0.5 ? 'sin cambio' : (invert ? (d>0?'+':'')+d.toFixed(0)+'s' : (d>0?'+':'')+Math.round(d)+'%');
+      return `<span style="font-size:11px;font-family:var(--mono);color:${col};margin-left:8px">${arrow} ${label}</span>`;
+    };
+
+    const chartCard = (title, kpiKey, metaLine, invertDir, curVal, prevVal, fmtFn) => {
+      const delta = deltaStr(curVal, prevVal, invertDir);
+      const colCur = kpiKey==='wmsr' ? (curVal>=70?'var(--green)':curVal>=50?'var(--yellow)':'var(--red)')
+                   : kpiKey==='tmrr' ? (curVal>=100?'var(--green)':curVal>=80?'var(--yellow)':'var(--red)')
+                   : (curVal<=600?'var(--green)':curVal<=900?'var(--yellow)':'var(--red)');
+      const metaLabel = kpiKey==='wmsr' ? 'Meta 70%' : kpiKey==='tmrr' ? 'Meta 100%' : 'Meta <10min';
+      return `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden">
+        <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-family:var(--display);font-size:14px;font-weight:700;color:var(--text)">${title}</div>
+            <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:2px">${metaLabel}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <div style="text-align:right">
+              <div style="font-size:10px;font-family:var(--mono);color:var(--text3)">Período anterior</div>
+              <div style="font-family:var(--mono);font-size:13px;color:var(--text2)">${prevVal!==null?fmtFn(prevVal):'—'}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:10px;font-family:var(--mono);color:var(--text3)">Período actual</div>
+              <div style="font-family:var(--display);font-size:18px;font-weight:700;color:${curVal!==null?colCur:'var(--text3)'}">
+                ${curVal!==null?fmtFn(curVal):'—'}${delta}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="padding:16px 20px 10px">
+          <div style="display:flex;gap:16px;margin-bottom:10px;font-size:10px;font-family:var(--mono)">
+            <span style="display:flex;align-items:center;gap:5px">
+              <span style="display:inline-block;width:18px;height:2px;background:var(--accent)"></span>
+              <span style="color:var(--text3)">Actual: ${curLabel}</span>
+            </span>
+            <span style="display:flex;align-items:center;gap:5px">
+              <span style="display:inline-block;width:18px;height:1px;border-top:2px dashed rgba(148,163,184,0.4)"></span>
+              <span style="color:var(--text3)">Anterior: ${prevLabel}</span>
+            </span>
+          </div>
+          ${buildTrendSVG(curPts, prevPts, kpiKey, 520, 160, invertDir, metaLine)}
+        </div>
+      </div>`;
+    };
+
+    panel.innerHTML = `
+      <div class="section-header" style="margin-bottom:16px">
+        <div class="section-title">Tendencia — ${hotelFilter}</div>
+        <div class="section-count">Período actual vs anterior · ${periodDays} días</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:16px" class="fade-in">
+        ${chartCard('WMSR — Welcome Message Sent Ratio','wmsr',70,false,curKPIs.wmsr,prevKPIs.wmsr,v=>Math.round(v)+'%')}
+        ${chartCard('TMRR — Team Member Response Rate','tmrr',100,false,curKPIs.tmrr,prevKPIs.tmrr,v=>Math.round(v)+'%')}
+        ${chartCard('Avg. Response Time','avgRespSec',600,true,curKPIs.avgRespSec,prevKPIs.avgRespSec,fmtSec)}
+      </div>`;
+    return;
+  }
+
+  // ── MODO TODOS LOS HOTELES: barras agrupadas por hotel (actual vs anterior)
+  // Filtrar hoteles según país si aplica
+  const visibleCodes = HOTEL_ORDER.filter(code => {
+    if (!cFilter) return true;
+    return (HOTEL_COUNTRY[code] || '') === cFilter;
+  });
+
+  // Calcular KPIs por hotel para ambos períodos
+  const hotelRows = visibleCodes.map(code => {
+    const curR  = allRecords.filter(r => r.code === code && r.dateObj >= startDate && r.dateObj <= endDate2);
+    const prevR = allRecords.filter(r => r.code === code && r.dateObj >= prevStart  && r.dateObj <= prevEnd);
+    return { code, cur: calcKPIs(curR), prev: calcKPIs(prevR) };
+  });
+
+  const buildBarChart = (kpiKey, metaVal, invertDir, title, metaLabel, fmtFn) => {
+    // Gather all values for y-scale
+    const allVals = hotelRows.flatMap(h => [h.cur[kpiKey], h.prev[kpiKey], metaVal]).filter(v => v !== null);
+    if (!allVals.length) return `<div style="padding:24px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--text3)">Sin datos</div>`;
+
+    const W = 680, H = 200;
+    const padL = 48, padR = 16, padT = 14, padB = 40;
+    const gW = W - padL - padR;
+    const gH = H - padT - padB;
+
+    let yMin = 0;
+    let yMax = Math.max(...allVals) * 1.15;
+    if (yMax === 0) yMax = 1;
+    const yRange = yMax - yMin;
+
+    const toY = v => padT + (invertDir
+      ? ((v - yMin) / yRange) * gH
+      : (1 - (v - yMin) / yRange) * gH);
+
+    const n = visibleCodes.length;
+    const groupW = gW / n;
+    const barW   = Math.max(4, Math.min(18, groupW * 0.32));
+    const gap    = Math.max(2, barW * 0.4);
+
+    // Y ticks
+    const tickCount = 4;
+    const ticks = Array.from({length: tickCount}, (_, i) => {
+      const v = yMin + (yRange / (tickCount-1)) * i;
+      return { v, y: toY(v).toFixed(1), label: kpiKey==='avgRespSec' ? fmtSec(v) : Math.round(v)+'%' };
+    });
+
+    const metaY = toY(metaVal).toFixed(1);
+
+    // Bar color per hotel per value
+    const barCol = (v) => {
+      if (v === null) return 'rgba(71,85,105,0.2)';
+      if (kpiKey==='wmsr')     return v>=70  ? 'var(--green)' : v>=50  ? 'var(--yellow)' : 'var(--red)';
+      if (kpiKey==='tmrr')     return v>=100 ? 'var(--green)' : v>=80  ? 'var(--yellow)' : 'var(--red)';
+      return v<=600 ? 'var(--green)' : v<=900 ? 'var(--yellow)' : 'var(--red)';
+    };
+
+    const bars = hotelRows.map((h, i) => {
+      const cx = padL + i * groupW + groupW / 2;
+      const xPrev = cx - gap/2 - barW;
+      const xCur  = cx + gap/2;
+
+      const vPrev = h.prev[kpiKey];
+      const vCur  = h.cur[kpiKey];
+
+      const baseY = toY(yMin);
+
+      const prevBar = vPrev !== null ? (() => {
+        const y = toY(vPrev); const bh = Math.abs(baseY - y);
+        return `<rect x="${xPrev.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${Math.max(1,bh).toFixed(1)}"
+          fill="rgba(148,163,184,0.25)" rx="2"/>`;
+      })() : '';
+
+      const curBar = vCur !== null ? (() => {
+        const y = toY(vCur); const bh = Math.abs(baseY - y);
+        return `<rect x="${xCur.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${Math.max(1,bh).toFixed(1)}"
+          fill="${barCol(vCur)}" rx="2" opacity="0.85"/>`;
+      })() : '';
+
+      // Delta arrow above current bar
+      let arrow = '';
+      if (vCur !== null && vPrev !== null) {
+        const d = vCur - vPrev;
+        const threshold = Math.abs(vPrev) * 0.02;
+        const isGood = invertDir ? d < 0 : d > 0;
+        const sym = Math.abs(d) <= threshold ? '' : (d > 0 ? '▲' : '▼');
+        const col = !sym ? 'rgba(148,163,184,0.4)' : isGood ? 'var(--green)' : 'var(--red)';
+        if (sym) {
+          const ay = toY(vCur) - 7;
+          arrow = `<text x="${(xCur + barW/2).toFixed(1)}" y="${ay.toFixed(1)}" fill="${col}" font-size="7" text-anchor="middle">${sym}</text>`;
+        }
+      }
+
+      // Hotel label
+      const labelY = (padT + gH + 14).toFixed(1);
+      const labelX = cx.toFixed(1);
+      const label = `<text x="${labelX}" y="${labelY}" fill="rgba(148,163,184,0.6)" font-size="8.5" text-anchor="middle" font-family="monospace">${h.code}</text>`;
+
+      return prevBar + curBar + arrow + label;
+    }).join('');
+
+    return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="overflow:visible;display:block">
+      ${ticks.map(t=>`
+        <line x1="${padL}" y1="${t.y}" x2="${padL+gW}" y2="${t.y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+        <text x="${(padL-5).toFixed(0)}" y="${t.y}" fill="rgba(148,163,184,0.55)" font-size="9" text-anchor="end" dominant-baseline="middle" font-family="monospace">${t.label}</text>
+      `).join('')}
+      <!-- Meta line -->
+      <line x1="${padL}" y1="${metaY}" x2="${padL+gW}" y2="${metaY}" stroke="rgba(245,158,11,0.5)" stroke-width="1" stroke-dasharray="5,3"/>
+      <text x="${(padL+gW+4).toFixed(0)}" y="${metaY}" fill="rgba(245,158,11,0.65)" font-size="8" dominant-baseline="middle" font-family="monospace">meta</text>
+      <!-- Bars -->
+      ${bars}
+      <!-- X axis -->
+      <line x1="${padL}" y1="${(padT+gH).toFixed(1)}" x2="${(padL+gW).toFixed(1)}" y2="${(padT+gH).toFixed(1)}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    </svg>`;
+  };
+
+  const cardWrap = (title, metaLabel, svgContent, curTotal, prevTotal, fmtFn, colCur) => `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden">
-      <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div style="padding:14px 20px 12px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <div>
           <div style="font-family:var(--display);font-size:14px;font-weight:700;color:var(--text)">${title}</div>
           <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:2px">${metaLabel}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:20px">
           <div style="text-align:right">
-            <div style="font-size:10px;font-family:var(--mono);color:var(--text3)">Período anterior</div>
-            <div style="font-family:var(--mono);font-size:13px;color:var(--text2)">${prevFmt}</div>
+            <div style="font-size:10px;font-family:var(--mono);color:var(--text3)">Promedio anterior</div>
+            <div style="font-family:var(--mono);font-size:13px;color:var(--text2)">${prevTotal!==null?fmtFn(prevTotal):'—'}</div>
           </div>
           <div style="text-align:right">
-            <div style="font-size:10px;font-family:var(--mono);color:var(--text3)">Período actual</div>
-            <div style="font-family:var(--display);font-size:18px;font-weight:700;color:${curFmt!=='—'?colCur:'var(--text3)'}">
-              ${curFmt}${delta}
-            </div>
+            <div style="font-size:10px;font-family:var(--mono);color:var(--text3)">Promedio actual</div>
+            <div style="font-family:var(--display);font-size:17px;font-weight:700;color:${curTotal!==null?colCur:'var(--text3)'}">${curTotal!==null?fmtFn(curTotal):'—'}</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;font-size:10px;font-family:var(--mono)">
+            <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;background:rgba(148,163,184,0.3);border-radius:2px"></span><span style="color:var(--text3)">Anterior</span></span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;background:var(--green);border-radius:2px;opacity:0.85"></span><span style="color:var(--text3)">Actual</span></span>
           </div>
         </div>
       </div>
-      <div style="padding:16px 20px 10px">
-        <div style="display:flex;gap:16px;margin-bottom:10px;font-size:10px;font-family:var(--mono)">
-          <span style="display:flex;align-items:center;gap:5px">
-            <span style="display:inline-block;width:18px;height:2px;background:var(--accent);border-radius:1px"></span>
-            <span style="color:var(--text3)">Actual: ${curLabel}</span>
-          </span>
-          <span style="display:flex;align-items:center;gap:5px">
-            <span style="display:inline-block;width:18px;height:2px;background:rgba(148,163,184,0.4);border-radius:1px;border-top:1px dashed rgba(148,163,184,0.4)"></span>
-            <span style="color:var(--text3)">Anterior: ${prevLabel}</span>
-          </span>
-        </div>
-        ${buildTrendSVG(curPts, prevPts, kpiKey, 520, 160, invertDir, metaLine)}
+      <div style="padding:16px 20px 12px;overflow-x:auto">
+        ${svgContent}
       </div>
     </div>`;
-  };
+
+  // Global KPIs for header
+  const allCurRecs  = allRecords.filter(r => r.dateObj >= startDate && r.dateObj <= endDate2 && (!cFilter || r.country===cFilter));
+  const allPrevRecs = allRecords.filter(r => r.dateObj >= prevStart  && r.dateObj <= prevEnd  && (!cFilter || r.country===cFilter));
+  const gCur  = calcKPIs(allCurRecs);
+  const gPrev = calcKPIs(allPrevRecs);
+
+  const colOf = (v, key) => !v ? 'var(--text3)'
+    : key==='wmsr' ? (v>=70?'var(--green)':v>=50?'var(--yellow)':'var(--red)')
+    : key==='tmrr' ? (v>=100?'var(--green)':v>=80?'var(--yellow)':'var(--red)')
+    : (v<=600?'var(--green)':v<=900?'var(--yellow)':'var(--red)');
 
   panel.innerHTML = `
-    <div class="section-header" style="margin-bottom:16px">
-      <div class="section-title">Tendencia — Período actual vs anterior</div>
-      <div class="section-count">Comparando ${periodDays} días · ${hotelFilter || 'Todos los hoteles'}</div>
+    <div class="section-header" style="margin-bottom:4px">
+      <div class="section-title">Tendencia por hotel — Período actual vs anterior</div>
+      <div class="section-count">${periodDays} días · Selecciona un hotel en el filtro para ver su evolución diaria</div>
+    </div>
+    <div style="font-size:11px;font-family:var(--mono);color:var(--text3);margin-bottom:16px;display:flex;gap:16px;flex-wrap:wrap">
+      <span>▪ Anterior: ${prevLabel}</span>
+      <span>▪ Actual: ${curLabel}</span>
+      <span style="color:rgba(245,158,11,0.7)">▪ ▲▼ sobre barra = cambio vs período anterior</span>
     </div>
     <div style="display:grid;grid-template-columns:1fr;gap:16px" class="fade-in">
-      ${chartCard('WMSR — Welcome Message Sent Ratio', 'wmsr', 70, false,
-          curKPIs.wmsr, prevKPIs.wmsr, v => Math.round(v) + '%')}
-      ${chartCard('TMRR — Team Member Response Rate', 'tmrr', 100, false,
-          curKPIs.tmrr, prevKPIs.tmrr, v => Math.round(v) + '%')}
-      ${chartCard('Avg. Response Time — Tiempo promedio de respuesta', 'avgRespSec', 600, true,
-          curKPIs.avgRespSec, prevKPIs.avgRespSec, fmtSec)}
-    </div>
-  `;
+      ${cardWrap('WMSR — Welcome Message Sent Ratio','Meta 70%',
+          buildBarChart('wmsr',70,false,'WMSR','Meta 70%',v=>Math.round(v)+'%'),
+          gCur.wmsr, gPrev.wmsr, v=>Math.round(v)+'%', colOf(gCur.wmsr,'wmsr'))}
+      ${cardWrap('TMRR — Team Member Response Rate','Meta 100%',
+          buildBarChart('tmrr',100,false,'TMRR','Meta 100%',v=>Math.round(v)+'%'),
+          gCur.tmrr, gPrev.tmrr, v=>Math.round(v)+'%', colOf(gCur.tmrr,'tmrr'))}
+      ${cardWrap('Avg. Response Time — Tiempo promedio de respuesta','Meta <10min',
+          buildBarChart('avgRespSec',600,true,'AvgResp','Meta <10min',fmtSec),
+          gCur.avgRespSec, gPrev.avgRespSec, fmtSec, colOf(gCur.avgRespSec,'avgRespSec'))}
+    </div>`;
 }
 
 // ============================================================================
