@@ -541,20 +541,20 @@
 
   /* Color fill backgrounds per state */
   .kpi-card.green {
-    background: linear-gradient(135deg, rgba(16,185,129,0.13) 0%, rgba(16,185,129,0.04) 100%);
-    border-color: rgba(16,185,129,0.35);
+    background: linear-gradient(135deg, rgba(16,185,129,0.07) 0%, rgba(16,185,129,0.02) 100%);
+    border-color: rgba(16,185,129,0.25);
   }
   .kpi-card.yellow {
-    background: linear-gradient(135deg, rgba(245,158,11,0.13) 0%, rgba(245,158,11,0.04) 100%);
-    border-color: rgba(245,158,11,0.35);
+    background: linear-gradient(135deg, rgba(245,158,11,0.07) 0%, rgba(245,158,11,0.02) 100%);
+    border-color: rgba(245,158,11,0.25);
   }
   .kpi-card.red {
-    background: linear-gradient(135deg, rgba(239,68,68,0.13) 0%, rgba(239,68,68,0.04) 100%);
-    border-color: rgba(239,68,68,0.35);
+    background: linear-gradient(135deg, rgba(239,68,68,0.07) 0%, rgba(239,68,68,0.02) 100%);
+    border-color: rgba(239,68,68,0.25);
   }
   .kpi-card.blue {
-    background: linear-gradient(135deg, rgba(59,130,246,0.10) 0%, rgba(59,130,246,0.03) 100%);
-    border-color: rgba(59,130,246,0.3);
+    background: linear-gradient(135deg, rgba(59,130,246,0.06) 0%, rgba(59,130,246,0.01) 100%);
+    border-color: rgba(59,130,246,0.2);
   }
 
   .kpi-card::before {
@@ -569,20 +569,6 @@
   .kpi-card.yellow::before { background: linear-gradient(90deg, var(--yellow), transparent); }
   .kpi-card.red::before    { background: linear-gradient(90deg, var(--red), transparent); }
   .kpi-card.blue::before   { background: linear-gradient(90deg, var(--accent), transparent); }
-
-  /* State icon inside card */
-  .kpi-state-icon {
-    position: absolute;
-    top: 20px; right: 20px;
-    width: 28px; height: 28px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px;
-  }
-  .kpi-card.green  .kpi-state-icon { background: rgba(16,185,129,0.15);  }
-  .kpi-card.yellow .kpi-state-icon { background: rgba(245,158,11,0.15); }
-  .kpi-card.red    .kpi-state-icon { background: rgba(239,68,68,0.15);   }
-  .kpi-card.blue   .kpi-state-icon { background: rgba(59,130,246,0.12);  }
 
   /* Ranking panel */
   #ranking-panel {
@@ -2231,25 +2217,21 @@ function renderDashboard() {
   const wmsrState = global.wmsr !== null ? (global.wmsr >= 70 ? 'green' : global.wmsr >= 50 ? 'yellow' : 'red') : 'blue';
   const tmrrState = global.tmrr !== null ? (global.tmrr >= 100 ? 'green' : global.tmrr >= 80 ? 'yellow' : 'red') : 'blue';
   const avgState  = global.avgRespSec !== null ? (global.avgRespSec <= 600 ? 'green' : global.avgRespSec <= 900 ? 'yellow' : 'red') : 'blue';
-  const stateIcon = s => s === 'green' ? '✓' : s === 'yellow' ? '!' : s === 'red' ? '✕' : '·';
 
   kpiSummary.innerHTML = `
     <div class="kpi-card ${wmsrState} fade-in">
-      <div class="kpi-state-icon">${stateIcon(wmsrState)}</div>
       <div class="kpi-name"><span class="kpi-name-full">Welcome Message Sent Ratio</span><span class="kpi-name-short">WMSR</span></div>
       <div class="kpi-val ${wmsrColor(global.wmsr)}">${global.wmsr !== null ? global.wmsr.toFixed(0)+'%' : '—'}</div>
       <div class="kpi-meta">Total: ${recs.reduce((s,r)=>s+r.welcomeSent,0).toFixed(0)} enviados / ${recs.reduce((s,r)=>s+r.countCheckin,0).toFixed(0)} check-ins</div>
       <div class="kpi-target">Meta: 70%</div>
     </div>
     <div class="kpi-card ${tmrrState} fade-in">
-      <div class="kpi-state-icon">${stateIcon(tmrrState)}</div>
       <div class="kpi-name"><span class="kpi-name-full">Team Member Response Rate</span><span class="kpi-name-short">TMRR</span></div>
       <div class="kpi-val ${tmrrColor(global.tmrr)}">${global.tmrr !== null ? global.tmrr.toFixed(0)+'%' : '—'}</div>
       <div class="kpi-meta">Respondidos: ${recs.reduce((s,r)=>s+r.msgResp,0).toFixed(0)} / Sin respuesta: ${recs.reduce((s,r)=>s+r.noResp,0).toFixed(0)}</div>
       <div class="kpi-target">Meta: 100%</div>
     </div>
     <div class="kpi-card ${avgState} fade-in">
-      <div class="kpi-state-icon">${stateIcon(avgState)}</div>
       <div class="kpi-name"><span class="kpi-name-full">Average Response Time</span><span class="kpi-name-short">Avg. Resp.</span></div>
       <div class="kpi-val ${avgRespColor(global.avgRespSec)}">${global.avgRespFmt}</div>
       <div class="kpi-meta">Tiempo total: ${(recs.reduce((s,r)=>s+r.totalTime,0)/3600).toFixed(1)}h · Mensajes: ${recs.reduce((s,r)=>s+r.msgResp,0).toFixed(0)}</div>
@@ -2355,123 +2337,110 @@ function renderDashboard() {
 // RANKING + ALERTS PANEL (Opción 4)
 // ============================================================================
 
-function hotelScore(h) {
-  // Score compuesto 0–100: promedio ponderado de 3 KPIs vs sus metas
-  let parts = [], weights = [];
-  if (h.wmsr !== null)      { parts.push(Math.min(100, h.wmsr / 70 * 100));         weights.push(1); }
-  if (h.tmrr !== null)      { parts.push(Math.min(100, h.tmrr / 100 * 100));        weights.push(1); }
-  if (h.avgRespSec !== null){ parts.push(Math.max(0, 100 - (h.avgRespSec / 600 * 50))); weights.push(1); }
-  if (!parts.length) return null;
-  return parts.reduce((s,v)=>s+v,0) / parts.length;
-}
-
 function renderRanking(recs) {
   const panel = document.getElementById('ranking-panel');
   if (!panel) return;
 
-  // Build per-hotel data for the filtered period
+  // Build per-hotel WMSR data for the filtered period
   const hotelList = HOTEL_ORDER.map((code, idx) => {
     const hotelRecs = recs.filter(r => r.code === code);
     const kpis = calcKPIs(hotelRecs);
     const countryRec = allRecords.find(r => r.code === code);
     const country = countryRec ? countryRec.country : HOTEL_COUNTRY[code] || '—';
-    const wOk = kpis.wmsr !== null && kpis.wmsr >= 70;
-    const tOk = kpis.tmrr !== null && kpis.tmrr >= 100;
-    const aOk = kpis.avgRespSec !== null && kpis.avgRespSec <= 600;
-    const metaScore = [wOk, tOk, aOk].filter(Boolean).length;
-    const score = hotelScore(kpis);
 
-    // Last date this hotel reported data in the full dataset
+    // Last date this hotel reported in the full dataset
     const allHotelDates = allRecords.filter(r => r.code === code).map(r => r.dateObj).filter(Boolean);
     const lastReportDate = allHotelDates.length ? new Date(Math.max(...allHotelDates)) : null;
     const today = new Date();
-    const daysSinceReport = lastReportDate
-      ? Math.floor((today - lastReportDate) / 86400000)
-      : null;
+    const daysSinceReport = lastReportDate ? Math.floor((today - lastReportDate) / 86400000) : null;
     const noRecentData = hotelRecs.length === 0;
 
-    return { code, country, pos: idx+1, ...kpis, metaScore, score, noRecentData, daysSinceReport, wOk, tOk, aOk };
+    return { code, country, pos: idx+1, wmsr: kpis.wmsr, records: hotelRecs.length, noRecentData, daysSinceReport };
   });
 
-  // ── Top performers (score ≥ 80, at least 1 record)
+  // ── Top 5 por WMSR (con datos, orden descendente)
   const topHotels = hotelList
-    .filter(h => h.score !== null && h.records > 0)
-    .sort((a,b) => b.score - a.score)
+    .filter(h => h.wmsr !== null && h.records > 0)
+    .sort((a, b) => b.wmsr - a.wmsr)
     .slice(0, 5);
 
-  // ── Alerts: critical (0/3 metas with data) + no data in period
+  // ── Alertas: sin datos en período ó WMSR < 70%
   const alertHotels = hotelList.filter(h => {
     if (h.noRecentData) return true;
-    if (h.records > 0 && h.metaScore === 0) return true;
+    if (h.records > 0 && h.wmsr !== null && h.wmsr < 70) return true;
     return false;
+  }).sort((a, b) => {
+    // Sin datos primero, luego por WMSR ascendente
+    if (a.noRecentData && !b.noRecentData) return -1;
+    if (!a.noRecentData && b.noRecentData) return 1;
+    return (a.wmsr ?? 0) - (b.wmsr ?? 0);
   });
 
-  const posClass = (i) => i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : 'normal';
+  const posClass = i => i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : 'normal';
 
-  const dotColor = (ok) => ok ? 'var(--green)' : 'var(--red)';
-
-  const metaDots = (h) => `
-    <div style="display:flex;gap:3px;align-items:center">
-      <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor(h.wOk)}" title="WMSR"></span>
-      <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor(h.tOk)}" title="TMRR"></span>
-      <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor(h.aOk)}" title="Resp."></span>
+  const wmsrBar = (wmsr) => {
+    const pct = Math.min(100, wmsr);
+    const col = wmsr >= 70 ? 'var(--green)' : wmsr >= 50 ? 'var(--yellow)' : 'var(--red)';
+    return `<div style="width:64px;height:4px;background:var(--bg);border-radius:2px;overflow:hidden;margin-top:3px">
+      <div style="width:${pct}%;height:100%;background:${col};border-radius:2px"></div>
     </div>`;
+  };
 
   const topRows = topHotels.length ? topHotels.map((h, i) => `
     <div class="rank-row">
       <div class="rank-pos ${posClass(i)}">${i+1}</div>
       <div class="rank-info">
         <div class="rank-name">${h.code}</div>
-        <div class="rank-sub">${h.country} · ${h.metaScore}/3 metas · ${h.records} reg.</div>
+        <div class="rank-sub">${h.country} · ${h.records} reg.</div>
       </div>
-      ${metaDots(h)}
-      <div class="rank-score c-green">${Math.round(h.score)}%</div>
+      ${wmsrBar(h.wmsr)}
+      <div class="rank-score" style="color:${h.wmsr>=70?'var(--green)':h.wmsr>=50?'var(--yellow)':'var(--red)'};min-width:38px;text-align:right">${Math.round(h.wmsr)}%</div>
     </div>
   `).join('') : `<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--text3)">Sin datos suficientes</div>`;
 
   const alertRows = alertHotels.length ? alertHotels.map(h => {
     const isNoData = h.noRecentData;
-    const isCritical = !isNoData && h.metaScore === 0;
-    const rowClass = isNoData ? 'rank-row no-data-row' : 'rank-row alert-row';
     const daysLabel = h.daysSinceReport !== null
       ? (h.daysSinceReport === 0 ? 'datos hoy' : `hace ${h.daysSinceReport}d`)
       : 'nunca reportó';
     const subText = isNoData
       ? `${h.country} · Sin datos en período · último: ${daysLabel}`
-      : `${h.country} · 0/3 metas · ${h.records} reg.`;
-    const scoreText = isNoData
+      : `${h.country} · WMSR por debajo de meta · ${h.records} reg.`;
+    const scoreHtml = isNoData
       ? `<span style="font-family:var(--mono);font-size:11px;color:var(--text3)">—</span>`
-      : `<div class="rank-score c-red">${Math.round(h.score)}%</div>`;
+      : `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+           ${wmsrBar(h.wmsr)}
+           <span class="rank-score" style="color:${h.wmsr>=50?'var(--yellow)':'var(--red)'};font-size:13px">${Math.round(h.wmsr)}%</span>
+         </div>`;
     return `
-      <div class="${rowClass}">
-        <div class="rank-pos alert">${isNoData ? '!' : '✕'}</div>
+      <div class="rank-row ${isNoData ? 'no-data-row' : 'alert-row'}">
+        <div class="rank-pos alert">${isNoData ? '!' : '↓'}</div>
         <div class="rank-info">
           <div class="rank-name" style="color:${isNoData?'var(--text3)':'var(--red)'}">${h.code}</div>
           <div class="rank-sub">${subText}</div>
         </div>
-        ${isNoData ? '' : metaDots(h)}
-        ${scoreText}
+        ${scoreHtml}
       </div>`;
-  }).join('') : `<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--green)">✓ Sin alertas en el período</div>`;
+  }).join('') : `<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--green)">✓ Todos los hoteles cumplen la meta WMSR</div>`;
 
   panel.innerHTML = `
     <div class="section-header" style="margin-bottom:16px">
-      <div class="section-title">Ranking y Alertas</div>
-      <div class="section-count">Score compuesto (WMSR · TMRR · Resp.) vs metas</div>
+      <div class="section-title">Ranking y Alertas — WMSR</div>
+      <div class="section-count">Meta: 70% · Welcome Message Sent Ratio</div>
     </div>
     <div class="ranking-grid fade-in">
       <div class="rank-card">
         <div class="rank-card-header">
           <span style="font-size:15px">🏆</span>
-          <span class="rank-card-title">Top performers</span>
-          <span class="badge badge-ok" style="margin-left:auto">Top 5</span>
+          <span class="rank-card-title">Top 5 — Mayor WMSR</span>
+          <span class="badge badge-ok" style="margin-left:auto">≥ 70%</span>
         </div>
         <div class="rank-card-body">${topRows}</div>
       </div>
       <div class="rank-card">
         <div class="rank-card-header">
           <span style="font-size:15px">🚨</span>
-          <span class="rank-card-title">Alertas</span>
+          <span class="rank-card-title">Alertas — WMSR bajo meta</span>
           <span class="badge badge-red" style="margin-left:auto">${alertHotels.length} hotel${alertHotels.length !== 1 ? 'es' : ''}</span>
         </div>
         <div class="rank-card-body">${alertRows}</div>
