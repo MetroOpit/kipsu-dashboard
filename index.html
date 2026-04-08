@@ -2113,7 +2113,7 @@ function calcPeriodKPIsByDay(startDate, endDate, hotelFilter) {
     .sort((a, b) => new Date(a[0]) - new Date(b[0]))
     .map(([date, dayRecs]) => {
       const k = calcKPIs(dayRecs);
-      return { date, dateObj: new Date(date), wmsr: k.wmsr, tmrr: k.tmrr, avgRespSec: k.avgRespSec };
+      return { date, dateObj: new Date(date), wmsr: k.wmsr, tmrr: k.tmrr, avgRespSec: k.avgRespSec, totalConv: k.totalConv };
     });
 }
 
@@ -2156,7 +2156,9 @@ function buildTrendSVG(curPts, prevPts, kpiKey, W, H, invertDir, metaLine) {
     const y = toY(v);
     const label = kpiKey === 'avgRespSec'
       ? (() => { const h=Math.floor(v/3600),m=Math.floor((v%3600)/60),s=Math.floor(v%60); return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; })()
-      : Math.round(v) + '%';
+      : kpiKey === 'totalConv'
+        ? Math.round(v) + ''
+        : Math.round(v) + '%';
     return { y: y.toFixed(1), label };
   });
 
@@ -2228,22 +2230,35 @@ function renderTrendCharts(startDate, endDate2, hotelFilter) {
     const curKPIs  = calcKPIs(allRecords.filter(r => r.dateObj >= startDate && r.dateObj <= endDate2 && r.code === hotelFilter));
     const prevKPIs = calcKPIs(allRecords.filter(r => r.dateObj >= prevStart && r.dateObj <= prevEnd  && r.code === hotelFilter));
 
-    const deltaStr = (cur, prev, invert) => {
+    const deltaStr = (cur, prev, invert, key) => {
       if (cur === null || prev === null) return '';
       const d = cur - prev;
       const isGood = invert ? d < 0 : d > 0;
       const arrow = d > 0 ? '↑' : d < 0 ? '↓' : '→';
       const col = Math.abs(d) < 0.5 ? 'var(--text3)' : isGood ? 'var(--green)' : 'var(--red)';
-      const label = Math.abs(d) < 0.5 ? 'sin cambio' : (invert ? (d>0?'+':'')+d.toFixed(0)+'s' : (d>0?'+':'')+Math.round(d)+'%');
+      let label;
+      if (Math.abs(d) < 0.5) {
+        label = 'sin cambio';
+      } else if (invert) {
+        label = (d>0?'+':'') + d.toFixed(0) + 's';
+      } else if (key === 'totalConv') {
+        label = (d>0?'+':'') + Math.round(d) + ' conv.';
+      } else {
+        label = (d>0?'+':'') + Math.round(d) + '%';
+      }
       return `<span style="font-size:11px;font-family:var(--mono);color:${col};margin-left:8px">${arrow} ${label}</span>`;
     };
 
     const chartCard = (title, kpiKey, metaLine, invertDir, curVal, prevVal, fmtFn) => {
-      const delta = deltaStr(curVal, prevVal, invertDir);
-      const colCur = kpiKey==='wmsr' ? (curVal>=70?'var(--green)':curVal>=50?'var(--yellow)':'var(--red)')
-                   : kpiKey==='tmrr' ? (curVal>=100?'var(--green)':curVal>=80?'var(--yellow)':'var(--red)')
+      const delta = deltaStr(curVal, prevVal, invertDir, kpiKey);
+      const colCur = kpiKey==='wmsr'      ? (curVal>=70 ?'var(--green)':curVal>=50 ?'var(--yellow)':'var(--red)')
+                   : kpiKey==='tmrr'      ? (curVal>=100?'var(--green)':curVal>=80 ?'var(--yellow)':'var(--red)')
+                   : kpiKey==='totalConv' ? (curVal>=30 ?'var(--green)':curVal>=21 ?'var(--yellow)':'var(--red)')
                    : (curVal<=600?'var(--green)':curVal<=900?'var(--yellow)':'var(--red)');
-      const metaLabel = kpiKey==='wmsr' ? 'Meta 70%' : kpiKey==='tmrr' ? 'Meta 100%' : 'Meta <10min';
+      const metaLabel = kpiKey==='wmsr'      ? 'Meta 70%'
+                      : kpiKey==='tmrr'      ? 'Meta 100%'
+                      : kpiKey==='totalConv' ? 'Meta ≥30/mes'
+                      : 'Meta <10min';
       return `
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden">
         <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -2289,6 +2304,7 @@ function renderTrendCharts(startDate, endDate2, hotelFilter) {
         ${chartCard('WMSR — Welcome Message Sent Ratio','wmsr',70,false,curKPIs.wmsr,prevKPIs.wmsr,v=>Math.round(v)+'%')}
         ${chartCard('TMRR — Team Member Response Rate','tmrr',100,false,curKPIs.tmrr,prevKPIs.tmrr,v=>Math.round(v)+'%')}
         ${chartCard('Avg. Response Time','avgRespSec',600,true,curKPIs.avgRespSec,prevKPIs.avgRespSec,fmtSec)}
+        ${chartCard('Total Conversations','totalConv',30,false,curKPIs.totalConv,prevKPIs.totalConv,v=>Math.round(v)+' conv.')}
       </div>`;
     return;
   }
@@ -2334,16 +2350,22 @@ function renderTrendCharts(startDate, endDate2, hotelFilter) {
     const tickCount = 4;
     const ticks = Array.from({length: tickCount}, (_, i) => {
       const v = yMin + (yRange / (tickCount - 1)) * i;
-      return { v, y: toY(v).toFixed(1), label: kpiKey === 'avgRespSec' ? fmtSec(v) : Math.round(v) + '%' };
+      const label = kpiKey === 'avgRespSec'
+        ? fmtSec(v)
+        : kpiKey === 'totalConv'
+          ? Math.round(v) + ''
+          : Math.round(v) + '%';
+      return { v, y: toY(v).toFixed(1), label };
     });
 
     const metaY = toY(metaVal).toFixed(1);
 
     const barCol = v => {
       if (v === null) return 'rgba(71,85,105,0.2)';
-      if (kpiKey === 'wmsr') return v >= 70  ? 'var(--green)' : v >= 50  ? 'var(--yellow)' : 'var(--red)';
-      if (kpiKey === 'tmrr') return v >= 100 ? 'var(--green)' : v >= 80  ? 'var(--yellow)' : 'var(--red)';
-      // avgRespSec: lower is better
+      if (kpiKey === 'wmsr')      return v >= 70  ? 'var(--green)' : v >= 50  ? 'var(--yellow)' : 'var(--red)';
+      if (kpiKey === 'tmrr')      return v >= 100 ? 'var(--green)' : v >= 80  ? 'var(--yellow)' : 'var(--red)';
+      if (kpiKey === 'totalConv') return v >= 30  ? 'var(--green)' : v >= 21  ? 'var(--yellow)' : 'var(--red)';
+      // avgRespSec: menor es mejor
       return v <= 600 ? 'var(--green)' : v <= 900 ? 'var(--yellow)' : 'var(--red)';
     };
 
@@ -2365,7 +2387,7 @@ function renderTrendCharts(startDate, endDate2, hotelFilter) {
         return `<rect x="${xCur.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${Math.max(1, bh).toFixed(1)}" fill="${barCol(vCur)}" rx="2" opacity="0.85"/>`;
       })() : '';
 
-      // Arrow: for avgRespSec, going DOWN (d<0) is good (green ▼), going UP is bad (red ▲)
+      // Flecha: para avgRespSec bajar es bueno; para el resto subir es bueno
       let arrow = '';
       if (vCur !== null && vPrev !== null) {
         const d = vCur - vPrev;
@@ -2430,10 +2452,14 @@ function renderTrendCharts(startDate, endDate2, hotelFilter) {
   const gCur  = calcKPIs(allCurRecs);
   const gPrev = calcKPIs(allPrevRecs);
 
-  const colOf = (v, key) => !v ? 'var(--text3)'
-    : key==='wmsr' ? (v>=70?'var(--green)':v>=50?'var(--yellow)':'var(--red)')
-    : key==='tmrr' ? (v>=100?'var(--green)':v>=80?'var(--yellow)':'var(--red)')
-    : (v<=600?'var(--green)':v<=900?'var(--yellow)':'var(--red)');
+  const colOf = (v, key) => {
+    if (v === null || v === undefined) return 'var(--text3)';
+    if (key==='wmsr')      return v>=70  ? 'var(--green)' : v>=50  ? 'var(--yellow)' : 'var(--red)';
+    if (key==='tmrr')      return v>=100 ? 'var(--green)' : v>=80  ? 'var(--yellow)' : 'var(--red)';
+    if (key==='totalConv') return v>=30  ? 'var(--green)' : v>=21  ? 'var(--yellow)' : 'var(--red)';
+    // avgRespSec: menor es mejor
+    return v<=600 ? 'var(--green)' : v<=900 ? 'var(--yellow)' : 'var(--red)';
+  };
 
   panel.innerHTML = `
     <div class="section-header" style="margin-bottom:4px">
@@ -2455,6 +2481,9 @@ function renderTrendCharts(startDate, endDate2, hotelFilter) {
       ${cardWrap('Avg. Response Time — Tiempo promedio de respuesta','Meta <10min',
           buildBarChart('avgRespSec',600,'AvgResp','Meta <10min',fmtSec),
           gCur.avgRespSec, gPrev.avgRespSec, fmtSec, colOf(gCur.avgRespSec,'avgRespSec'))}
+      ${cardWrap('Total Conversations — Conversaciones totales','Meta ≥30/mes',
+          buildBarChart('totalConv',30,'TotalConv','Meta ≥30/mes',v=>Math.round(v)+' conv.'),
+          gCur.totalConv, gPrev.totalConv, v=>Math.round(v)+' conv.', colOf(gCur.totalConv,'totalConv'))}
     </div>`;
 }
 
@@ -2721,7 +2750,7 @@ function renderDashboard() {
     const hotels = countryMap[country] || [];
     if (!hotels.length) return;
     tableRows += `
-      <tr class="country-row"><td colspan="5">${country} — ${hotels.length} propiedades</td></tr>
+      <tr class="country-row"><td colspan="6">${country} — ${hotels.length} propiedades</td></tr>
     `;
     hotels.forEach(h => {
       const wc = wmsrColor(h.wmsr);
@@ -2925,16 +2954,27 @@ function getStatusBadge(h) {
   const wOk = h.wmsr !== null && h.wmsr >= 70;
   const tOk = h.tmrr !== null && h.tmrr >= 100;
   const aOk = h.avgRespSec !== null && h.avgRespSec <= 600;
-  const score = [wOk, tOk, aOk].filter(Boolean).length;
+  // Conv: se evalúa solo si tiene datos (totalConv no null); si es null se omite del conteo
+  const hasConvData = h.totalConv !== null && h.totalConv !== undefined;
+  const cOk = hasConvData && h.totalConv >= 5; // umbral razonable para el período
 
-  const dots = [
-    `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${wOk?'var(--green)':'var(--red)'};margin-right:2px"></span>`,
-    `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${tOk?'var(--green)':'var(--red)'};margin-right:2px"></span>`,
-    `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${aOk?'var(--green)':'var(--red)'}"></span>`,
-  ].join('');
+  // Score sobre las metas con datos disponibles
+  const metasConDatos = [true, true, true, hasConvData]; // wmsr, tmrr, avg siempre; conv solo si hay datos
+  const totalMetas = metasConDatos.filter(Boolean).length;
+  const score = [wOk, tOk, aOk, hasConvData && cOk].filter(Boolean).length;
 
-  if (score === 3) return `<span class="badge badge-ok" style="display:inline-flex;align-items:center;gap:5px">✓ Cumple ${dots}</span>`;
-  if (score >= 1) return `<span class="badge badge-warn" style="display:inline-flex;align-items:center;gap:5px">${score}/3 metas ${dots}</span>`;
+  // Tooltip por punto: W=WMSR, T=TMRR, A=Avg.Resp, C=Conv
+  const dotW = `<span title="WMSR" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${wOk?'var(--green)':'var(--red)'};margin-right:2px"></span>`;
+  const dotT = `<span title="TMRR" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${tOk?'var(--green)':'var(--red)'};margin-right:2px"></span>`;
+  const dotA = `<span title="Avg.Resp" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${aOk?'var(--green)':'var(--red)'};margin-right:2px"></span>`;
+  const dotC = hasConvData
+    ? `<span title="Conv." style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${cOk?'var(--green)':'var(--red)'}"></span>`
+    : `<span title="Conv. sin datos" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text3);opacity:0.4"></span>`;
+
+  const dots = dotW + dotT + dotA + dotC;
+
+  if (score === totalMetas) return `<span class="badge badge-ok" style="display:inline-flex;align-items:center;gap:5px">✓ Cumple ${dots}</span>`;
+  if (score >= 1) return `<span class="badge badge-warn" style="display:inline-flex;align-items:center;gap:5px">${score}/${totalMetas} metas ${dots}</span>`;
   return `<span class="badge badge-red" style="display:inline-flex;align-items:center;gap:5px">✕ Crítico ${dots}</span>`;
 }
 
