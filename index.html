@@ -571,7 +571,6 @@
   .kpi-card.blue::before   { background: linear-gradient(90deg, var(--accent), transparent); }
 
   /* Ranking panel */
-  #ranking-panel {
     position: relative;
     z-index: 10;
     margin: 0 40px 40px;
@@ -1368,6 +1367,11 @@
   <!-- Populated dynamically -->
 </div>
 
+<!-- TREND CHARTS PANEL -->
+<div id="trend-panel" style="display:none; position:relative;z-index:10;margin:0 40px 40px">
+  <!-- Populated dynamically -->
+</div>
+
 <script>
 // ============================================================================
 // CONFIGURACIÓN
@@ -2035,6 +2039,219 @@ function cancelLoad() {
 }
 
 // ============================================================================
+// TREND CHARTS — comparación período actual vs período anterior
+// ============================================================================
+
+function getTrendPeriods(currentStartDate, currentEndDate) {
+  // Calcula el período anterior con la misma duración que el actual
+  const duration = currentEndDate - currentStartDate;
+  const prevEnd   = new Date(currentStartDate.getTime() - 1);       // 1ms antes del inicio actual
+  const prevStart = new Date(currentStartDate.getTime() - duration - 1);
+  return { prevStart, prevEnd };
+}
+
+function calcPeriodKPIsByDay(startDate, endDate, hotelFilter) {
+  // Agrupa todos los registros del período por fecha, devuelve array ordenado de puntos
+  let recs = allRecords.filter(r => r.dateObj && r.dateObj >= startDate && r.dateObj <= endDate);
+  if (hotelFilter) recs = recs.filter(r => r.code === hotelFilter);
+
+  const byDate = {};
+  recs.forEach(r => {
+    if (!byDate[r.date]) byDate[r.date] = [];
+    byDate[r.date].push(r);
+  });
+
+  return Object.entries(byDate)
+    .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+    .map(([date, dayRecs]) => {
+      const k = calcKPIs(dayRecs);
+      return { date, dateObj: new Date(date), wmsr: k.wmsr, tmrr: k.tmrr, avgRespSec: k.avgRespSec };
+    });
+}
+
+function buildTrendSVG(curPts, prevPts, kpiKey, W, H, invertDir, metaLine) {
+  // Dibuja línea actual (brillante) + línea anterior (punteada tenue) + línea de meta
+  const allVals = [
+    ...curPts.map(p => p[kpiKey]),
+    ...prevPts.map(p => p[kpiKey]),
+    metaLine
+  ].filter(v => v !== null && v !== undefined);
+
+  if (!allVals.length) return '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:20px 0;text-align:center">Sin datos suficientes para graficar</div>';
+
+  const padL = 44, padR = 12, padT = 12, padB = 28;
+  const gW = W - padL - padR;
+  const gH = H - padT - padB;
+
+  // Y scale: add 10% breathing room
+  let yMin = Math.min(...allVals);
+  let yMax = Math.max(...allVals);
+  if (yMin === yMax) { yMin = yMin * 0.9; yMax = yMax * 1.1; }
+  const yRange = yMax - yMin || 1;
+
+  const toY = v => padT + (invertDir
+    ? ((v - yMin) / yRange) * gH
+    : (1 - (v - yMin) / yRange) * gH);
+
+  // X scale: use index-based (normalize both series to same x width)
+  const toX_cur  = (i, n) => padL + (n <= 1 ? gW/2 : (i / (n-1)) * gW);
+  const toX_prev = (i, n) => padL + (n <= 1 ? gW/2 : (i / (n-1)) * gW);
+
+  // Build polyline points
+  const linePoints = (pts, key, toX) => pts
+    .filter(p => p[key] !== null)
+    .map((p, i, arr) => `${toX(i, arr.length).toFixed(1)},${toY(p[key]).toFixed(1)}`)
+    .join(' ');
+
+  const curPoints  = linePoints(curPts,  kpiKey, toX_cur);
+  const prevPoints = linePoints(prevPts, kpiKey, toX_prev);
+
+  // Y axis labels (3 ticks)
+  const ticks = [yMin, (yMin+yMax)/2, yMax].map(v => {
+    const y = toY(v);
+    const label = kpiKey === 'avgRespSec'
+      ? (() => { const h=Math.floor(v/3600),m=Math.floor((v%3600)/60),s=Math.floor(v%60); return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; })()
+      : Math.round(v) + '%';
+    return { y: y.toFixed(1), label };
+  });
+
+  // Meta reference line Y
+  const metaY = toY(metaLine).toFixed(1);
+
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="overflow:visible;display:block">
+    <defs>
+      <linearGradient id="grad_cur_${kpiKey}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.18"/>
+        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+
+    <!-- Grid lines -->
+    ${ticks.map(t => `<line x1="${padL}" y1="${t.y}" x2="${padL+gW}" y2="${t.y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`).join('')}
+
+    <!-- Meta line -->
+    <line x1="${padL}" y1="${metaY}" x2="${padL+gW}" y2="${metaY}"
+      stroke="rgba(245,158,11,0.45)" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="${padL+gW+4}" y="${metaY}" fill="rgba(245,158,11,0.7)" font-size="8" dominant-baseline="middle" font-family="monospace">meta</text>
+
+    <!-- Previous period line (dashed, dim) -->
+    ${prevPoints ? `<polyline points="${prevPoints}" fill="none" stroke="rgba(148,163,184,0.35)" stroke-width="1.5" stroke-dasharray="4,3" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
+
+    <!-- Current period area fill -->
+    ${curPoints ? `<polyline points="${curPoints}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
+
+    <!-- Y axis labels -->
+    ${ticks.map(t => `<text x="${padL-6}" y="${t.y}" fill="rgba(148,163,184,0.6)" font-size="9" text-anchor="end" dominant-baseline="middle" font-family="monospace">${t.label}</text>`).join('')}
+
+    <!-- X axis line -->
+    <line x1="${padL}" y1="${padT+gH}" x2="${padL+gW}" y2="${padT+gH}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+    <!-- X axis labels: first and last date of current period -->
+    ${curPts.length > 0 ? `
+      <text x="${padL}" y="${padT+gH+14}" fill="rgba(148,163,184,0.5)" font-size="9" text-anchor="start" font-family="monospace">${curPts[0].date}</text>
+      <text x="${padL+gW}" y="${padT+gH+14}" fill="rgba(148,163,184,0.5)" font-size="9" text-anchor="end" font-family="monospace">${curPts[curPts.length-1].date}</text>
+    ` : ''}
+
+    <!-- Dot on last current point -->
+    ${curPts.length > 0 && curPts[curPts.length-1][kpiKey] !== null ? (() => {
+      const lp = curPts.filter(p => p[kpiKey] !== null);
+      if (!lp.length) return '';
+      const lx = toX_cur(lp.length-1, lp.length).toFixed(1);
+      const ly = toY(lp[lp.length-1][kpiKey]).toFixed(1);
+      return `<circle cx="${lx}" cy="${ly}" r="3.5" fill="var(--accent)" stroke="var(--bg)" stroke-width="1.5"/>`;
+    })() : ''}
+  </svg>`;
+}
+
+function renderTrendCharts(startDate, endDate2, hotelFilter) {
+  const panel = document.getElementById('trend-panel');
+  if (!panel) return;
+
+  const { prevStart, prevEnd } = getTrendPeriods(startDate, endDate2);
+
+  const curPts  = calcPeriodKPIsByDay(startDate, endDate2, hotelFilter);
+  const prevPts = calcPeriodKPIsByDay(prevStart, prevEnd, hotelFilter);
+
+  const curKPIs  = calcKPIs(allRecords.filter(r => r.dateObj >= startDate && r.dateObj <= endDate2 && (!hotelFilter || r.code === hotelFilter)));
+  const prevKPIs = calcKPIs(allRecords.filter(r => r.dateObj >= prevStart && r.dateObj <= prevEnd  && (!hotelFilter || r.code === hotelFilter)));
+
+  const deltaStr = (cur, prev, invert) => {
+    if (cur === null || prev === null) return '';
+    const d = cur - prev;
+    const isGood = invert ? d < 0 : d > 0;
+    const arrow = d > 0 ? '↑' : d < 0 ? '↓' : '→';
+    const col = Math.abs(d) < 0.5 ? 'var(--text3)' : isGood ? 'var(--green)' : 'var(--red)';
+    return `<span style="font-size:11px;font-family:var(--mono);color:${col};margin-left:8px">${arrow} ${Math.abs(d) < 0.5 ? 'sin cambio' : (invert ? (d>0?'+':'')+d.toFixed(0)+'s' : (d>0?'+':'')+Math.round(d)+'%')}</span>`;
+  };
+
+  const fmtSec = s => { if (!s) return '—'; const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=Math.floor(s%60); return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`; };
+
+  const periodDays = Math.round((endDate2 - startDate) / 86400000) + 1;
+  const prevLabel  = `${formatDate(prevStart)} → ${formatDate(prevEnd)}`;
+  const curLabel   = `${formatDate(startDate)} → ${formatDate(endDate2)}`;
+
+  const chartCard = (title, kpiKey, metaLine, invertDir, curVal, prevVal, fmtFn) => {
+    const delta = deltaStr(curVal, prevVal, invertDir);
+    const prevFmt = prevVal !== null ? fmtFn(prevVal) : '—';
+    const curFmt  = curVal  !== null ? fmtFn(curVal)  : '—';
+    const colCur  = kpiKey === 'wmsr' ? (curVal >= 70 ? 'var(--green)' : curVal >= 50 ? 'var(--yellow)' : 'var(--red)')
+                  : kpiKey === 'tmrr' ? (curVal >= 100 ? 'var(--green)' : curVal >= 80 ? 'var(--yellow)' : 'var(--red)')
+                  : (curVal <= 600 ? 'var(--green)' : curVal <= 900 ? 'var(--yellow)' : 'var(--red)');
+    const metaLabel = kpiKey === 'wmsr' ? 'Meta 70%' : kpiKey === 'tmrr' ? 'Meta 100%' : 'Meta <10min';
+
+    return `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden">
+      <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-family:var(--display);font-size:14px;font-weight:700;color:var(--text)">${title}</div>
+          <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:2px">${metaLabel}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <div style="text-align:right">
+            <div style="font-size:10px;font-family:var(--mono);color:var(--text3)">Período anterior</div>
+            <div style="font-family:var(--mono);font-size:13px;color:var(--text2)">${prevFmt}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:10px;font-family:var(--mono);color:var(--text3)">Período actual</div>
+            <div style="font-family:var(--display);font-size:18px;font-weight:700;color:${curFmt!=='—'?colCur:'var(--text3)'}">
+              ${curFmt}${delta}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:16px 20px 10px">
+        <div style="display:flex;gap:16px;margin-bottom:10px;font-size:10px;font-family:var(--mono)">
+          <span style="display:flex;align-items:center;gap:5px">
+            <span style="display:inline-block;width:18px;height:2px;background:var(--accent);border-radius:1px"></span>
+            <span style="color:var(--text3)">Actual: ${curLabel}</span>
+          </span>
+          <span style="display:flex;align-items:center;gap:5px">
+            <span style="display:inline-block;width:18px;height:2px;background:rgba(148,163,184,0.4);border-radius:1px;border-top:1px dashed rgba(148,163,184,0.4)"></span>
+            <span style="color:var(--text3)">Anterior: ${prevLabel}</span>
+          </span>
+        </div>
+        ${buildTrendSVG(curPts, prevPts, kpiKey, 520, 160, invertDir, metaLine)}
+      </div>
+    </div>`;
+  };
+
+  panel.innerHTML = `
+    <div class="section-header" style="margin-bottom:16px">
+      <div class="section-title">Tendencia — Período actual vs anterior</div>
+      <div class="section-count">Comparando ${periodDays} días · ${hotelFilter || 'Todos los hoteles'}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr;gap:16px" class="fade-in">
+      ${chartCard('WMSR — Welcome Message Sent Ratio', 'wmsr', 70, false,
+          curKPIs.wmsr, prevKPIs.wmsr, v => Math.round(v) + '%')}
+      ${chartCard('TMRR — Team Member Response Rate', 'tmrr', 100, false,
+          curKPIs.tmrr, prevKPIs.tmrr, v => Math.round(v) + '%')}
+      ${chartCard('Avg. Response Time — Tiempo promedio de respuesta', 'avgRespSec', 600, true,
+          curKPIs.avgRespSec, prevKPIs.avgRespSec, fmtSec)}
+    </div>
+  `;
+}
+
+// ============================================================================
 // DASHBOARD RENDERING
 // ============================================================================
 
@@ -2044,6 +2261,7 @@ function showMainDashboard() {
   document.getElementById('kpi-summary').style.display = 'grid';
   document.getElementById('hotel-grid').style.display = 'block';
   document.getElementById('ranking-panel').style.display = 'block';
+  document.getElementById('trend-panel').style.display = 'block';
   renderAdminBtn();
   renderDashboard();
 }
@@ -2065,6 +2283,7 @@ function hideMainDashboard() {
   document.getElementById('kpi-summary').style.display = 'none';
   document.getElementById('hotel-grid').style.display = 'none';
   document.getElementById('ranking-panel').style.display = 'none';
+  document.getElementById('trend-panel').style.display = 'none';
 }
 
 function setPeriod(p, btn) {
@@ -2274,7 +2493,6 @@ function renderDashboard() {
 
       const wPct = h.wmsr !== null ? Math.min(100, h.wmsr) : 0;
       const tPct = h.tmrr !== null ? Math.min(100, h.tmrr) : 0;
-      const aPct = h.avgRespSec !== null ? Math.max(0, 100 - (h.avgRespSec / 1800 * 100)) : 0;
 
       tableRows += `
         <tr>
@@ -2299,9 +2517,7 @@ function renderDashboard() {
             <span class="kpi-cell ${ac}">${h.avgRespFmt}</span>
           </td>
           <td style="font-family:var(--mono);font-size:11px;color:var(--text3)">${h.records} reg.</td>
-          <td>
-            ${getStatusBadge(h)}
-          </td>
+          <td>${getStatusBadge(h)}</td>
         </tr>
       `;
     });
@@ -2331,6 +2547,8 @@ function renderDashboard() {
 
   setStatus('ok', `${allRecords.length} reg. · ${formatDate(lastDate)}`);
   renderRanking(recs);
+  const hFilter = document.getElementById('hotel-filter').value;
+  renderTrendCharts(startDate, endDate2, hFilter);
 }
 
 // ============================================================================
