@@ -2486,22 +2486,27 @@ function toggleMonthSelect(btn) {
 function populateMonthSelect() {
   const sel = document.getElementById('month-select');
   const currentVal = sel.value;
-  // Build sorted list of unique YYYY-MM from records
-  const months = [...new Set(
-    allRecords.map(r => r.date ? r.date.slice(0,7) : null).filter(Boolean)
-  )].sort().reverse(); // most recent first
+  // Build sorted list of unique YYYY-MM from dateObj (not from r.date string which puede ser MM/DD/YYYY)
+  const monthSet = new Set();
+  allRecords.forEach(r => {
+    if (!r.dateObj) return;
+    const y = r.dateObj.getFullYear();
+    const m = String(r.dateObj.getMonth() + 1).padStart(2, '0');
+    monthSet.add(y + '-' + m);
+  });
+  const months = [...monthSet].sort().reverse(); // más reciente primero
   sel.innerHTML = '<option value="">— Selecciona mes —</option>';
   const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   months.forEach(ym => {
-    const [y, m] = ym.split('-');
-    const label = `${MONTH_NAMES[parseInt(m)-1]} ${y}`;
+    const [y, mo] = ym.split('-');
+    const label = `${MONTH_NAMES[parseInt(mo)-1]} ${y}`;
     const opt = document.createElement('option');
     opt.value = ym;
     opt.textContent = label;
     if (ym === currentVal) opt.selected = true;
     sel.appendChild(opt);
   });
-  // Auto-select most recent if nothing selected
+  // Auto-select más reciente si no hay selección
   if (!sel.value && months.length) sel.value = months[0];
 }
 
@@ -2648,7 +2653,20 @@ function renderDashboard() {
 
   // ── Period info bar
   const endDate2 = (currentPeriod === 'custom' && customDateTo) ? customDateTo : lastDate;
-  const periodLabel = currentPeriod === '7d' ? '7 días' : currentPeriod === '30d' ? '30 días' : 'Personalizado';
+  // Detectar si el tab activo es "Mes"
+  const monthTab = document.getElementById('tab-month');
+  const isMonthMode = monthTab && monthTab.classList.contains('active');
+  let periodLabel;
+  if (currentPeriod === '7d') {
+    periodLabel = '7 días';
+  } else if (currentPeriod === '30d') {
+    periodLabel = '30 días';
+  } else if (isMonthMode) {
+    const sel = document.getElementById('month-select');
+    periodLabel = sel && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : 'Mes';
+  } else {
+    periodLabel = 'Personalizado';
+  }
   document.getElementById('period-range-text').textContent =
     formatDate(startDate) + ' → ' + formatDate(endDate2) + ' (' + periodLabel + ')';
   document.getElementById('period-stats-text').innerHTML =
