@@ -561,7 +561,7 @@
     z-index: 10;
     margin: 0 40px 24px;
     display: none;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 16px;
   }
 
@@ -1164,15 +1164,15 @@
       flex-wrap: nowrap;
     }
 
-    /* Col 1: Hotel name + country — fixed width (only for data rows) */
+    /* Col 1: Hotel name + country — fixed width reducido para caber col Estado */
     .hotels-table tbody tr:not(.country-row) td:nth-child(1) {
-      flex: 0 0 68px;
+      flex: 0 0 56px;
       padding: 0 !important;
       min-width: 0;
     }
     .hotel-pos     { display: none; }
-    .hotel-code    { font-size: 12px; font-weight: 600; display: block; }
-    .hotel-country { font-size: 9px; color: var(--text3); margin-top: 1px; }
+    .hotel-code    { font-size: 11px; font-weight: 600; display: block; }
+    .hotel-country { font-size: 8px; color: var(--text3); margin-top: 1px; }
 
     /* Col 2,3,4,5: KPI values — equal flex, centered */
     .hotels-table td:nth-child(2),
@@ -1180,7 +1180,7 @@
     .hotels-table td:nth-child(4),
     .hotels-table td:nth-child(5) {
       flex: 1;
-      padding: 0 2px !important;
+      padding: 0 1px !important;
       text-align: center !important;
     }
     .bar-wrap {
@@ -1189,16 +1189,26 @@
       gap: 3px;
       justify-content: center;
     }
-    .bar-bg { width: 100%; max-width: 40px; height: 3px; }
-    .kpi-cell { font-size: 10px; font-weight: 600; }
+    .bar-bg { width: 100%; max-width: 36px; height: 3px; }
+    .kpi-cell { font-size: 9px; font-weight: 600; }
 
-    /* Col 6 (status badge): small, right-aligned */
+    /* Col 6 (Estado): override tablet hide — mostrar en móvil solo con dots */
+    .hotels-table thead th:nth-child(6) { display: none !important; }
     .hotels-table td:nth-child(6) {
+      display: flex !important;
       flex: 0 0 auto;
-      padding: 0 !important;
-      text-align: right !important;
+      padding: 0 0 0 2px !important;
+      align-items: center;
     }
-    .badge { font-size: 8px !important; padding: 2px 4px !important; }
+    /* En móvil: badge solo muestra dots, sin texto */
+    .hotels-table td:nth-child(6) .badge {
+      font-size: 0 !important;
+      padding: 3px 4px !important;
+      gap: 2px !important;
+    }
+    .hotels-table td:nth-child(6) .badge span[style] {
+      width: 6px !important; height: 6px !important;
+    }
 
     /* Section header */
     .section-header { flex-direction: column; align-items: flex-start; gap: 2px; margin-bottom: 10px; }
