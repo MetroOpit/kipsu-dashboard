@@ -1319,7 +1319,13 @@
   <div class="period-tabs">
     <button class="period-tab active" id="tab-7d"  onclick="setPeriod('7d',  this)">7 días</button>
     <button class="period-tab"        id="tab-30d" onclick="setPeriod('30d', this)">30 días</button>
+    <button class="period-tab"        id="tab-month" onclick="toggleMonthSelect(this)">Mes</button>
     <button class="period-tab"        id="tab-custom" onclick="toggleCustomRange(this)">Personalizado</button>
+  </div>
+  <div id="month-select-row" style="display:none;align-items:center;gap:8px">
+    <select id="month-select" onchange="applyMonthPeriod()" style="font-size:12px;padding:6px 10px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--mono)">
+      <option value="">— Selecciona mes —</option>
+    </select>
   </div>
   <div id="custom-range-row" class="date-range-row" style="display:none">
     <input type="date" id="date-from" onchange="applyCustomRange()">
@@ -2460,6 +2466,52 @@ function setPeriod(p, btn) {
   document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
   if (btn) btn.classList.add('active');
   document.getElementById('custom-range-row').style.display = 'none';
+  document.getElementById('month-select-row').style.display = 'none';
+  renderDashboard();
+}
+
+function toggleMonthSelect(btn) {
+  currentPeriod = 'custom';
+  document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('custom-range-row').style.display = 'none';
+  const row = document.getElementById('month-select-row');
+  row.style.display = 'flex';
+  // Populate month select from available data
+  populateMonthSelect();
+  // Apply currently selected month if any
+  applyMonthPeriod();
+}
+
+function populateMonthSelect() {
+  const sel = document.getElementById('month-select');
+  const currentVal = sel.value;
+  // Build sorted list of unique YYYY-MM from records
+  const months = [...new Set(
+    allRecords.map(r => r.date ? r.date.slice(0,7) : null).filter(Boolean)
+  )].sort().reverse(); // most recent first
+  sel.innerHTML = '<option value="">— Selecciona mes —</option>';
+  const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  months.forEach(ym => {
+    const [y, m] = ym.split('-');
+    const label = `${MONTH_NAMES[parseInt(m)-1]} ${y}`;
+    const opt = document.createElement('option');
+    opt.value = ym;
+    opt.textContent = label;
+    if (ym === currentVal) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  // Auto-select most recent if nothing selected
+  if (!sel.value && months.length) sel.value = months[0];
+}
+
+function applyMonthPeriod() {
+  const sel = document.getElementById('month-select');
+  const ym = sel.value;
+  if (!ym) return;
+  const [y, m] = ym.split('-').map(Number);
+  customDateFrom = new Date(y, m - 1, 1, 0, 0, 0);
+  customDateTo   = new Date(y, m, 0, 23, 59, 59); // last day of month
   renderDashboard();
 }
 
@@ -2828,19 +2880,19 @@ function renderHeatmap() {
     return wmsr(tw, tc);
   });
 
-  const cellStyle = `font-family:var(--mono);font-size:10px;font-weight:600;border-radius:5px;padding:5px 4px;text-align:center;min-width:44px`;
-  const th = `font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:6px 4px;text-align:center;min-width:44px`;
+  const cellStyle = `font-family:var(--mono);font-size:clamp(8px,1.8vw,10px);font-weight:600;border-radius:5px;padding:5px 2px;text-align:center;width:calc((100% - 60px) / 7);min-width:32px`;
+  const th = `font-family:var(--mono);font-size:clamp(8px,1.8vw,10px);color:var(--text3);text-transform:uppercase;letter-spacing:.3px;padding:6px 2px;text-align:center;width:calc((100% - 60px) / 7);min-width:32px`;
 
   const tableRows = hotels.map(code => {
     const cells = grid[code].map((cell, di) => {
       const v = wmsr(cell.tw, cell.tc);
       const bg = cellColor(v);
       const txt = cellText(v);
-      const col = v === null ? 'var(--text3)' : v >= 50 ? '#fff' : '#fff';
+      const col = '#fff';
       return `<td style="${cellStyle};background:${bg};color:${col}" title="${code} · ${days[di]}: ${txt || 'Sin datos'}">${txt || '—'}</td>`;
     }).join('');
     return `<tr>
-      <td style="font-family:var(--mono);font-size:11px;font-weight:500;color:var(--text);padding:5px 10px 5px 0;white-space:nowrap">${code}</td>
+      <td style="font-family:var(--mono);font-size:clamp(9px,2vw,11px);font-weight:500;color:var(--text);padding:5px 8px 5px 0;white-space:nowrap;width:60px">${code}</td>
       ${cells}
     </tr>`;
   }).join('');
@@ -2857,33 +2909,33 @@ function renderHeatmap() {
       <div class="section-count">Historial completo · Patrón de actividad</div>
     </div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden">
-      <div style="padding:16px 20px 8px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+      <div style="padding:12px 16px 8px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;gap:12px;align-items:center;flex-wrap:wrap">
         <span style="font-size:10px;font-family:var(--mono);color:var(--text3)">Escala:</span>
-        <span style="display:flex;align-items:center;gap:5px;font-size:10px;font-family:var(--mono)">
-          <span style="width:12px;height:12px;border-radius:3px;background:rgba(16,185,129,0.75);display:inline-block"></span><span style="color:var(--text3)">≥70% Meta</span>
+        <span style="display:flex;align-items:center;gap:4px;font-size:10px;font-family:var(--mono)">
+          <span style="width:10px;height:10px;border-radius:2px;background:rgba(16,185,129,0.75);display:inline-block"></span><span style="color:var(--text3)">≥70%</span>
         </span>
-        <span style="display:flex;align-items:center;gap:5px;font-size:10px;font-family:var(--mono)">
-          <span style="width:12px;height:12px;border-radius:3px;background:rgba(245,158,11,0.65);display:inline-block"></span><span style="color:var(--text3)">50–69%</span>
+        <span style="display:flex;align-items:center;gap:4px;font-size:10px;font-family:var(--mono)">
+          <span style="width:10px;height:10px;border-radius:2px;background:rgba(245,158,11,0.65);display:inline-block"></span><span style="color:var(--text3)">50–69%</span>
         </span>
-        <span style="display:flex;align-items:center;gap:5px;font-size:10px;font-family:var(--mono)">
-          <span style="width:12px;height:12px;border-radius:3px;background:rgba(239,68,68,0.7);display:inline-block"></span><span style="color:var(--text3)">&lt;50%</span>
+        <span style="display:flex;align-items:center;gap:4px;font-size:10px;font-family:var(--mono)">
+          <span style="width:10px;height:10px;border-radius:2px;background:rgba(239,68,68,0.7);display:inline-block"></span><span style="color:var(--text3)">&lt;50%</span>
         </span>
-        <span style="display:flex;align-items:center;gap:5px;font-size:10px;font-family:var(--mono)">
-          <span style="width:12px;height:12px;border-radius:3px;background:rgba(30,40,64,0.6);border:1px solid var(--border);display:inline-block"></span><span style="color:var(--text3)">Sin datos</span>
+        <span style="display:flex;align-items:center;gap:4px;font-size:10px;font-family:var(--mono)">
+          <span style="width:10px;height:10px;border-radius:2px;background:rgba(30,40,64,0.6);border:1px solid var(--border);display:inline-block"></span><span style="color:var(--text3)">Sin datos</span>
         </span>
       </div>
-      <div style="padding:16px 20px;overflow-x:auto">
-        <table style="border-collapse:separate;border-spacing:3px;width:100%">
+      <div style="padding:12px 16px">
+        <table style="border-collapse:separate;border-spacing:2px;width:100%;table-layout:fixed">
           <thead>
             <tr>
-              <th style="font-family:var(--mono);font-size:10px;color:var(--text3);text-align:left;padding-right:10px">Hotel</th>
+              <th style="font-family:var(--mono);font-size:10px;color:var(--text3);text-align:left;width:60px;padding-right:8px">Hotel</th>
               ${days.map(d => `<th style="${th}">${d}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
             ${tableRows}
             <tr style="border-top:1px solid var(--border2)">
-              <td style="font-family:var(--mono);font-size:10px;color:var(--text2);padding:5px 10px 5px 0;font-weight:700">Global</td>
+              <td style="font-family:var(--mono);font-size:10px;color:var(--text2);padding:5px 8px 5px 0;font-weight:700;width:60px">Global</td>
               ${summaryCells}
             </tr>
           </tbody>
@@ -2918,19 +2970,18 @@ function renderRanking(recs) {
     return { code, country, pos: idx+1, wmsr: kpis.wmsr, records: hotelRecs.length, noRecentData, daysSinceReport };
   });
 
-  // ── Top 5 por WMSR (con datos, orden descendente)
+  // ── Top por WMSR: solo hoteles con WMSR ≥ 50%, orden descendente
   const topHotels = hotelList
-    .filter(h => h.wmsr !== null && h.records > 0)
+    .filter(h => h.wmsr !== null && h.records > 0 && h.wmsr >= 50)
     .sort((a, b) => b.wmsr - a.wmsr)
     .slice(0, 5);
 
-  // ── Alertas: sin datos en período ó WMSR < 70% — TODOS los que no cumplan
+  // ── Alertas: sin datos ó WMSR < 50% — TODOS los que no cumplan
   const alertHotels = hotelList.filter(h => {
     if (h.noRecentData) return true;
-    if (h.records > 0 && h.wmsr !== null && h.wmsr < 70) return true;
+    if (h.records > 0 && h.wmsr !== null && h.wmsr < 50) return true;
     return false;
   }).sort((a, b) => {
-    // Sin datos primero, luego por WMSR ascendente
     if (a.noRecentData && !b.noRecentData) return -1;
     if (!a.noRecentData && b.noRecentData) return 1;
     return (a.wmsr ?? 0) - (b.wmsr ?? 0);
@@ -2988,12 +3039,12 @@ function renderRanking(recs) {
       <div class="section-title">Ranking y Alertas — WMSR</div>
       <div class="section-count">Meta: 70% · Welcome Message Sent Ratio</div>
     </div>
-    <div class="ranking-grid fade-in">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" class="fade-in">
       <div class="rank-card">
         <div class="rank-card-header">
           <span style="font-size:15px">🏆</span>
           <span class="rank-card-title">Top 5 — Mayor WMSR</span>
-          <span class="badge badge-ok" style="margin-left:auto">≥ 70%</span>
+          <span class="badge badge-ok" style="margin-left:auto">≥ 50%</span>
         </div>
         <div class="rank-card-body">${topRows}</div>
       </div>
