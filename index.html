@@ -1363,7 +1363,7 @@
 </div>
 
 <!-- RANKING PANEL -->
-<div id="ranking-panel" style="display:none">
+<div id="ranking-panel" style="display:none; position:relative;z-index:10;margin:0 40px 40px">
   <!-- Populated dynamically -->
 </div>
 
@@ -2657,7 +2657,7 @@ function renderDashboard() {
     const hotels = countryMap[country] || [];
     if (!hotels.length) return;
     tableRows += `
-      <tr class="country-row"><td colspan="7">${country} — ${hotels.length} propiedades</td></tr>
+      <tr class="country-row"><td colspan="5">${country} — ${hotels.length} propiedades</td></tr>
     `;
     hotels.forEach(h => {
       const wc = wmsrColor(h.wmsr);
@@ -2689,8 +2689,6 @@ function renderDashboard() {
           <td>
             <span class="kpi-cell ${ac}">${h.avgRespFmt}</span>
           </td>
-          <td style="font-family:var(--mono);font-size:11px;color:var(--text3)">${h.records} reg.</td>
-          <td style="padding:8px 16px">${buildSparkline(h.code, endDate2)}</td>
           <td>${getStatusBadge(h)}</td>
         </tr>
       `;
@@ -2710,8 +2708,6 @@ function renderDashboard() {
             <th>WMSR <span style="color:var(--text3);font-weight:400">(meta 70%)</span></th>
             <th>TMRR <span style="color:var(--text3);font-weight:400">(meta 100%)</span></th>
             <th>Avg. Resp. <span style="color:var(--text3);font-weight:400">(meta &lt;10min)</span></th>
-            <th>Registros</th>
-            <th>WMSR 7d</th>
             <th>Estado</th>
           </tr>
         </thead>
