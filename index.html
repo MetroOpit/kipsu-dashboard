@@ -1278,6 +1278,68 @@
     .summary-grid { grid-template-columns: 1fr 1fr; }
     .sum-value   { font-size: 18px; }
   }
+
+  /* ══════════════════════════════
+     BOTTOM SHEET — Hotel filter móvil
+  ══════════════════════════════ */
+  .bs-overlay {
+    display:none; position:fixed; inset:0; z-index:900;
+    background:rgba(0,0,0,0.55); backdrop-filter:blur(4px);
+    -webkit-backdrop-filter:blur(4px);
+  }
+  .bs-overlay.bs-open { display:block; }
+  .bs-sheet {
+    position:fixed; bottom:0; left:0; right:0; z-index:901;
+    background:var(--surface); border-top-left-radius:20px; border-top-right-radius:20px;
+    max-height:65vh; display:flex; flex-direction:column;
+    transform:translateY(100%); transition:transform 0.3s ease;
+    border:1px solid var(--border2); border-bottom:none;
+  }
+  .bs-overlay.bs-open .bs-sheet { transform:translateY(0); }
+  .bs-handle { width:36px; height:4px; border-radius:2px; background:var(--border2); margin:10px auto 0; flex-shrink:0; }
+  .bs-header {
+    padding:12px 20px 8px; display:flex; justify-content:space-between; align-items:center;
+    border-bottom:1px solid var(--border); flex-shrink:0;
+  }
+  .bs-title { font-family:var(--display); font-size:15px; font-weight:700; color:var(--text); }
+  .bs-close { background:none; border:none; color:var(--text3); font-size:20px; cursor:pointer; padding:4px 8px; }
+  .bs-body { overflow-y:auto; padding:8px 12px 20px; flex:1; -webkit-overflow-scrolling:touch; }
+  .bs-country-label {
+    font-family:var(--mono); font-size:9px; color:var(--text3); text-transform:uppercase;
+    letter-spacing:1px; padding:10px 8px 4px; border-bottom:1px solid var(--border);
+  }
+  .bs-option {
+    display:flex; align-items:center; gap:10px; padding:12px 8px;
+    border-bottom:1px solid rgba(255,255,255,0.04); cursor:pointer;
+    transition:background 0.15s;
+  }
+  .bs-option:active { background:rgba(59,130,246,0.1); }
+  .bs-option.bs-selected { background:rgba(59,130,246,0.08); }
+  .bs-radio {
+    width:18px; height:18px; border-radius:50%; border:2px solid var(--border2);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .bs-selected .bs-radio { border-color:var(--accent); }
+  .bs-selected .bs-radio::after {
+    content:''; width:8px; height:8px; border-radius:50%; background:var(--accent);
+  }
+  .bs-opt-code { font-family:var(--mono); font-size:13px; font-weight:600; color:var(--text); }
+  .bs-opt-dim { color:var(--text3); }
+
+  /* Trigger button for bottom sheet — replaces native select on mobile */
+  .bs-trigger {
+    display:none; font-family:var(--mono); font-size:11px; padding:6px 10px;
+    background:var(--surface2); border:1px solid var(--border2); border-radius:8px;
+    color:var(--text); cursor:pointer; text-align:left; min-width:80px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  @media (max-width: 768px) {
+    #hotel-filter { display:none !important; }
+    .bs-trigger { display:inline-block; flex:1; }
+  }
+  @media (min-width: 769px) {
+    .bs-overlay { display:none !important; }
+  }
 </style>
 </head>
 <body>
@@ -1391,7 +1453,7 @@
   </div>
   <div class="filter-sep"></div>
   <span class="filter-label">País:</span>
-  <select id="country-filter" onchange="renderDashboard()">
+  <select id="country-filter" onchange="onCountryChange()">
     <option value="">Todos</option>
     <option value="Colombia">Colombia</option>
     <option value="Peru">Perú</option>
@@ -1403,6 +1465,19 @@
     <option value="">Todos</option>
     <!-- Populated in order by populateHotelFilter() -->
   </select>
+  <button class="bs-trigger" id="bs-trigger" onclick="openHotelSheet()">Todos (14)</button>
+  <div class="bs-overlay" id="bs-overlay" onclick="closeHotelSheet(event)">
+    <div class="bs-sheet" onclick="event.stopPropagation()">
+      <div class="bs-handle"></div>
+      <div class="bs-header">
+        <span class="bs-title">Seleccionar hotel</span>
+        <button class="bs-close" onclick="closeHotelSheet()">&times;</button>
+      </div>
+      <div class="bs-body" id="bs-body">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+  </div>
   <div style="margin-left:auto">
     <button class="btn btn-secondary" onclick="autoLoad()" style="font-size:12px; padding:8px 14px">↻ Actualizar datos</button>
   </div>
@@ -1436,6 +1511,11 @@
 
 <!-- HEATMAP PANEL -->
 <div id="heatmap-panel" style="display:none; position:relative;z-index:10;margin:0 40px 40px">
+  <!-- Populated dynamically -->
+</div>
+
+<!-- COMPLIANCE HISTORY PANEL -->
+<div id="compliance-panel" style="display:none; position:relative;z-index:10;margin:0 40px 40px">
   <!-- Populated dynamically -->
 </div>
 
@@ -1963,29 +2043,111 @@ function parseCSV(text) {
   validationResult = { dateParseResults, warnings, anomalies, totalRows: lines.length - 1 };
 
   // Populate hotel filter in HOTEL_ORDER, then any extras alphabetically
-  populateHotelFilter(records);
+  populateHotelFilter(records, document.getElementById('country-filter').value);
 }
 
-function populateHotelFilter(records) {
+function populateHotelFilter(records, countryFilter) {
   const presentCodes = new Set(records.map(r => r.code));
   const sel = document.getElementById('hotel-filter');
-  sel.innerHTML = '<option value="">Todos (14)</option>';
-  // First: codes in defined order
-  HOTEL_ORDER.forEach(code => {
+  const prevVal = sel.value;
+  // Filter hotels by country if specified
+  const visibleCodes = HOTEL_ORDER.filter(code => {
+    if (!countryFilter) return true;
+    return (HOTEL_COUNTRY[code] || '') === countryFilter;
+  });
+  sel.innerHTML = `<option value="">Todos (${visibleCodes.length})</option>`;
+  visibleCodes.forEach(code => {
     const opt = document.createElement('option');
     opt.value = code;
     opt.textContent = code + (presentCodes.has(code) ? '' : ' (sin datos)');
     if (!presentCodes.has(code)) opt.style.color = '#475569';
     sel.appendChild(opt);
   });
-  // Then: any codes in data not in HOTEL_ORDER
+  // Then: any codes in data not in HOTEL_ORDER matching country
   presentCodes.forEach(code => {
     if (!HOTEL_ORDER.includes(code)) {
-      const opt = document.createElement('option');
-      opt.value = code; opt.textContent = code + ' *';
-      sel.appendChild(opt);
+      const country = records.find(r => r.code === code)?.country || '';
+      if (!countryFilter || country === countryFilter) {
+        const opt = document.createElement('option');
+        opt.value = code; opt.textContent = code + ' *';
+        sel.appendChild(opt);
+      }
     }
   });
+  // Restore previous selection if still available, else reset
+  if (prevVal && [...sel.options].some(o => o.value === prevVal)) {
+    sel.value = prevVal;
+  } else {
+    sel.value = '';
+  }
+  // Sync bottom sheet (mobile)
+  if (typeof syncBottomSheet === 'function') syncBottomSheet();
+}
+
+function onCountryChange() {
+  const cFilter = document.getElementById('country-filter').value;
+  populateHotelFilter(allRecords, cFilter);
+  syncBottomSheet();
+  renderDashboard();
+}
+
+// ── Bottom Sheet (hotel filter móvil)
+function syncBottomSheet() {
+  const sel = document.getElementById('hotel-filter');
+  const trigger = document.getElementById('bs-trigger');
+  const body = document.getElementById('bs-body');
+  if (!trigger || !body) return;
+
+  // Update trigger label
+  const selText = sel.options[sel.selectedIndex]?.text || 'Todos';
+  trigger.textContent = selText;
+
+  // Build option list grouped by country
+  const cFilter = document.getElementById('country-filter').value;
+  const countries = ['Colombia', 'Peru', 'Chile'];
+  const presentCodes = new Set(allRecords.map(r => r.code));
+  const currentVal = sel.value;
+
+  let html = `<div class="bs-option ${!currentVal ? 'bs-selected' : ''}" data-val="">
+    <div class="bs-radio"></div>
+    <span class="bs-opt-code">Todos</span>
+  </div>`;
+
+  countries.forEach(country => {
+    if (cFilter && country !== cFilter) return;
+    const codes = HOTEL_ORDER.filter(c => (HOTEL_COUNTRY[c] || '') === country);
+    if (!codes.length) return;
+    html += `<div class="bs-country-label">${country}</div>`;
+    codes.forEach(code => {
+      const dim = !presentCodes.has(code);
+      html += `<div class="bs-option ${currentVal === code ? 'bs-selected' : ''}" data-val="${code}">
+        <div class="bs-radio"></div>
+        <span class="bs-opt-code ${dim ? 'bs-opt-dim' : ''}">${code}${dim ? ' (sin datos)' : ''}</span>
+      </div>`;
+    });
+  });
+
+  body.innerHTML = html;
+  body.querySelectorAll('.bs-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      sel.value = opt.dataset.val;
+      trigger.textContent = opt.dataset.val || 'Todos';
+      closeHotelSheet();
+      renderDashboard();
+    });
+  });
+}
+
+function openHotelSheet() {
+  syncBottomSheet();
+  document.getElementById('bs-overlay').classList.add('bs-open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeHotelSheet(e) {
+  if (e && e.target !== document.getElementById('bs-overlay')) return;
+  document.getElementById('bs-overlay').classList.remove('bs-open');
+  document.body.style.overflow = '';
 }
 
 function parseCSVLine(line, delim) {
@@ -2156,7 +2318,7 @@ function buildTrendSVG(curPts, prevPts, kpiKey, W, H, invertDir, metaLine) {
     metaLine
   ].filter(v => v !== null && v !== undefined);
 
-  if (!allVals.length) return '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:20px 0;text-align:center">Sin datos suficientes para graficar</div>';
+  if (!allVals.length) return '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:20px 0;text-align:center"><div style="font-size:18px;margin-bottom:6px;opacity:0.4">📊</div>Sin datos en este período para graficar.<br><span style="font-size:10px;opacity:0.7">Verifica que el hotel tenga registros en las columnas correspondientes.</span></div>';
 
   const padL = 44, padR = 12, padT = 12, padB = 28;
   const gW = W - padL - padR;
@@ -2903,6 +3065,7 @@ function renderDashboard() {
   const hFilter = document.getElementById('hotel-filter').value;
   renderTrendCharts(startDate, endDate2, hFilter);
   renderHeatmap();
+  renderComplianceHistory();
 }
 
 // ============================================================================
@@ -3071,6 +3234,147 @@ function renderHeatmap() {
           </tbody>
         </table>
       </div>
+    </div>
+  `;
+}
+
+// ============================================================================
+// HISTÓRICO DE CUMPLIMIENTO — Barras apiladas por mes
+// ============================================================================
+
+function renderComplianceHistory() {
+  const panel = document.getElementById('compliance-panel');
+  if (!panel) return;
+
+  const cFilter = document.getElementById('country-filter').value;
+
+  // Group all records by YYYY-MM
+  const byMonth = {};
+  allRecords.forEach(r => {
+    if (!r.dateObj) return;
+    if (cFilter && r.country !== cFilter) return;
+    const key = r.dateObj.getFullYear() + '-' + String(r.dateObj.getMonth()+1).padStart(2,'0');
+    if (!byMonth[key]) byMonth[key] = {};
+    if (!byMonth[key][r.code]) byMonth[key][r.code] = [];
+    byMonth[key][r.code].push(r);
+  });
+
+  const months = Object.keys(byMonth).sort();
+  if (months.length < 2) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  const visibleCodes = HOTEL_ORDER.filter(code => {
+    if (!cFilter) return true;
+    return (HOTEL_COUNTRY[code] || '') === cFilter;
+  });
+  const totalHotels = visibleCodes.length;
+
+  // For each month, calculate how many hotels are green/yellow/red per KPI
+  const kpis = [
+    { key: 'wmsr',  label: 'WMSR',     greenFn: v => v >= 70,  yellowFn: v => v >= 50 && v < 70 },
+    { key: 'tmrr',  label: 'TMRR',     greenFn: v => v >= 100, yellowFn: v => v >= 80 && v < 100 },
+    { key: 'avgRespSec', label: 'Avg. Resp.', greenFn: v => v <= 600, yellowFn: v => v > 600 && v <= 900 },
+  ];
+
+  const monthLabels = months.map(m => {
+    const [y, mo] = m.split('-');
+    const names = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    return names[parseInt(mo)-1] + ' ' + y.slice(2);
+  });
+
+  const buildStackedChart = (kpi) => {
+    const data = months.map(m => {
+      let green = 0, yellow = 0, red = 0, noData = 0;
+      visibleCodes.forEach(code => {
+        const recs = (byMonth[m] && byMonth[m][code]) ? byMonth[m][code] : [];
+        if (!recs.length) { noData++; return; }
+        const k = calcKPIs(recs);
+        const v = k[kpi.key];
+        if (v === null) { noData++; return; }
+        if (kpi.greenFn(v)) green++;
+        else if (kpi.yellowFn(v)) yellow++;
+        else red++;
+      });
+      return { green, yellow, red, noData };
+    });
+
+    const W = 680, H = 180;
+    const padL = 40, padR = 16, padT = 12, padB = 44;
+    const gW = W - padL - padR;
+    const gH = H - padT - padB;
+    const n = months.length;
+    const barW = Math.max(8, Math.min(36, (gW / n) * 0.65));
+    const step = gW / n;
+
+    // Y scale: 0 to totalHotels
+    const toY = v => padT + (1 - v / totalHotels) * gH;
+
+    const bars = data.map((d, i) => {
+      const cx = padL + i * step + step / 2;
+      const x = cx - barW / 2;
+      let y = toY(0); // bottom
+
+      const segments = [];
+      // Stack: green at bottom, yellow, red, noData on top
+      [{count: d.green, fill: 'var(--green)'}, {count: d.yellow, fill: 'var(--yellow)'}, {count: d.red, fill: 'var(--red)'}, {count: d.noData, fill: 'rgba(71,85,105,0.35)'}].forEach(seg => {
+        if (!seg.count) return;
+        const segH = (seg.count / totalHotels) * gH;
+        y -= segH;
+        segments.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${segH.toFixed(1)}" fill="${seg.fill}" rx="2" opacity="0.85"/>`);
+      });
+
+      // Percentage label on top
+      const pctGreen = Math.round(d.green / totalHotels * 100);
+      return segments.join('') + `<text x="${cx.toFixed(1)}" y="${(toY(d.green + d.yellow + d.red + d.noData) - 4).toFixed(1)}" fill="var(--text2)" font-size="9" text-anchor="middle" font-family="monospace">${pctGreen}%</text>`;
+    });
+
+    // Y axis ticks
+    const yTicks = [0, Math.round(totalHotels/2), totalHotels];
+    const yTicksSvg = yTicks.map(v =>
+      `<text x="${padL-6}" y="${toY(v).toFixed(1)}" fill="rgba(148,163,184,0.5)" font-size="9" text-anchor="end" dominant-baseline="middle" font-family="monospace">${v}</text>
+       <line x1="${padL}" y1="${toY(v).toFixed(1)}" x2="${padL+gW}" y2="${toY(v).toFixed(1)}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`
+    ).join('');
+
+    // X labels (months)
+    const xLabels = monthLabels.map((lbl, i) => {
+      const cx = padL + i * step + step / 2;
+      // Rotate if many months
+      const rotate = n > 8 ? ` transform="rotate(-45,${cx.toFixed(1)},${(padT+gH+14).toFixed(1)})" text-anchor="end"` : ' text-anchor="middle"';
+      return `<text x="${cx.toFixed(1)}" y="${(padT+gH+14).toFixed(1)}" fill="rgba(148,163,184,0.6)" font-size="${n > 10 ? 7 : 9}" font-family="monospace"${rotate}>${lbl}</text>`;
+    }).join('');
+
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden">
+      <div style="padding:14px 20px 10px;border-bottom:1px solid var(--border);background:var(--surface2)">
+        <div style="font-family:var(--display);font-size:14px;font-weight:700;color:var(--text)">${kpi.label}</div>
+        <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:2px">Hoteles en meta por mes · % = en meta (verde)</div>
+      </div>
+      <div style="padding:16px 20px 10px;overflow-x:auto">
+        <svg width="100%" viewBox="0 0 ${W} ${H}" style="overflow:visible;display:block;min-width:${Math.max(400, n*40)}px">
+          ${yTicksSvg}
+          ${bars.join('')}
+          ${xLabels}
+          <line x1="${padL}" y1="${(padT+gH).toFixed(1)}" x2="${padL+gW}" y2="${(padT+gH).toFixed(1)}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+        </svg>
+      </div>
+    </div>`;
+  };
+
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <div class="section-header" style="margin-bottom:16px">
+      <div class="section-title">Histórico de Cumplimiento</div>
+      <div class="section-count">${totalHotels} hoteles · ${months.length} meses${cFilter ? ' · ' + cFilter : ''}</div>
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:16px;font-size:10px;font-family:var(--mono);flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--green);display:inline-block"></span><span style="color:var(--text3)">En meta</span></span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--yellow);display:inline-block"></span><span style="color:var(--text3)">Alerta</span></span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--red);display:inline-block"></span><span style="color:var(--text3)">Bajo meta</span></span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(71,85,105,0.35);border:1px solid var(--border);display:inline-block"></span><span style="color:var(--text3)">Sin datos</span></span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr;gap:16px" class="fade-in">
+      ${kpis.map(k => buildStackedChart(k)).join('')}
     </div>
   `;
 }
