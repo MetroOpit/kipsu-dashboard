@@ -1292,15 +1292,15 @@
      BOTTOM SHEET — Hotel filter móvil
   ══════════════════════════════ */
   .bs-overlay {
-    display:none; position:fixed; inset:0; z-index:900;
-    background:rgba(0,0,0,0.55); backdrop-filter:blur(4px);
-    -webkit-backdrop-filter:blur(4px);
+    display:none; position:fixed; inset:0; z-index:990;
+    background:rgba(0,0,0,0.6); backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);
   }
-  .bs-overlay.bs-open { display:block; }
+  .bs-overlay.bs-open { display:flex; align-items:flex-end; }
   .bs-sheet {
-    position:fixed; bottom:0; left:0; right:0; z-index:901;
+    position:relative; width:100%; z-index:991;
     background:var(--surface); border-top-left-radius:20px; border-top-right-radius:20px;
-    max-height:65vh; display:flex; flex-direction:column;
+    max-height:70vh; display:flex; flex-direction:column;
     transform:translateY(100%); transition:transform 0.3s ease;
     border:1px solid var(--border2); border-bottom:none;
     color:var(--text);
@@ -1349,6 +1349,7 @@
   }
   @media (min-width: 769px) {
     .bs-overlay { display:none !important; }
+    .bs-overlay.bs-open { display:none !important; }
   }
 </style>
 </head>
@@ -1476,18 +1477,6 @@
     <!-- Populated in order by populateHotelFilter() -->
   </select>
   <button class="bs-trigger" id="bs-trigger" onclick="openHotelSheet()">Todos (14)</button>
-  <div class="bs-overlay" id="bs-overlay" onclick="closeHotelSheet(event)">
-    <div class="bs-sheet" onclick="event.stopPropagation()">
-      <div class="bs-handle"></div>
-      <div class="bs-header">
-        <span class="bs-title">Seleccionar hotel</span>
-        <button class="bs-close" onclick="closeHotelSheet()">&times;</button>
-      </div>
-      <div class="bs-body" id="bs-body">
-        <!-- Populated dynamically -->
-      </div>
-    </div>
-  </div>
   <div style="margin-left:auto">
     <button class="btn btn-secondary" onclick="autoLoad()" style="font-size:12px; padding:8px 14px">↻ Actualizar datos</button>
   </div>
@@ -2155,7 +2144,7 @@ function openHotelSheet() {
 }
 
 function closeHotelSheet(e) {
-  if (e && e.target !== document.getElementById('bs-overlay')) return;
+  if (e && e.target && e.target.id !== 'bs-overlay') return;
   document.getElementById('bs-overlay').classList.remove('bs-open');
   document.body.style.overflow = '';
 }
@@ -4178,5 +4167,18 @@ function drUpdateConfirmBar(hasIssues, records, uniqueDates) {
   `;
 }
 </script>
+<!-- BOTTOM SHEET — Hotel filter móvil -->
+<div class="bs-overlay" id="bs-overlay" onclick="closeHotelSheet(event)">
+  <div class="bs-sheet" onclick="event.stopPropagation()">
+    <div class="bs-handle"></div>
+    <div class="bs-header">
+      <span class="bs-title">Seleccionar hotel</span>
+      <button class="bs-close" onclick="closeHotelSheet()">&times;</button>
+    </div>
+    <div class="bs-body" id="bs-body">
+      <!-- Populated dynamically -->
+    </div>
+  </div>
+</div>
 </body>
 </html>
